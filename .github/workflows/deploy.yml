@@ -38,15 +38,15 @@ jobs:
           
           # Scarichiamo le immagini base (Mongo, Redis, Base Sharelatex)
           # Utile se ci sono aggiornamenti di sicurezza upstream
-          sudo docker compose pull
+          docker compose pull
           
           # Ricostruiamo e Riavviamo
           # --build è FONDAMENTALE perché usiamo un Dockerfile personalizzato
-          sudo docker compose up -d --build
+          docker compose up -d --build
           
           # Pulizia chiave SSH temporanea
           rm -f ~/.ssh/id_ed25519
 
       # 4. Pulizia sicura (SOLO immagini vecchie)
       - name: Pulisci vecchie immagini di build
-        run: sudo docker image prune -f
+        run:  docker image prune -f
