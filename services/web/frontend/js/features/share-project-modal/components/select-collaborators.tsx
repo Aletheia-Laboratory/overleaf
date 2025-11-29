@@ -7,9 +7,9 @@ import classnames from 'classnames'
 import MaterialIcon from '@/shared/components/material-icon'
 import Tag from '@/shared/components/tag'
 import { DropdownItem } from '@/shared/components/dropdown/dropdown-menu'
-import { Spinner } from 'react-bootstrap'
 import { Contact } from '../utils/types'
 import OLFormLabel from '@/shared/components/ol/ol-form-label'
+import OLSpinner from '@/shared/components/ol/ol-spinner'
 
 export type ContactItem = {
   email: string
@@ -167,15 +167,7 @@ export default function SelectCollaborators({
       {/* eslint-disable-next-line jsx-a11y/label-has-for */}
       <OLFormLabel className="small" {...getLabelProps()}>
         {t('add_email_address')}
-        {loading && (
-          <Spinner
-            animation="border"
-            aria-hidden="true"
-            size="sm"
-            role="status"
-            className="ms-2"
-          />
-        )}
+        {loading && <OLSpinner size="sm" className="ms-2" />}
       </OLFormLabel>
 
       <div className="host">
@@ -245,12 +237,18 @@ export default function SelectCollaborators({
                     const emails = data
                       .split(/[\r\n,; ]+/)
                       .filter(item => item.includes('@'))
+                      .map(email => email.replace(matchAllSpaces, ''))
 
                     if (emails.length) {
                       // pasted comma-separated email addresses
                       event.preventDefault()
 
-                      for (const email of emails) {
+                      // dedupe emails in pasted content and previously-entered items
+                      const uniqueEmails = [...new Set(emails)].filter(
+                        email => !selectedEmails.includes(email)
+                      )
+
+                      for (const email of uniqueEmails) {
                         addNewItem(email)
                       }
                     }

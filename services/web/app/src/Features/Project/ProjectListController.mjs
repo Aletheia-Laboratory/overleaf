@@ -1,34 +1,37 @@
 // @ts-check
 import _ from 'lodash'
+import moment from 'moment'
 
 import Metrics from '@overleaf/metrics'
 import Settings from '@overleaf/settings'
-import ProjectHelper from './ProjectHelper.js'
-import ProjectGetter from './ProjectGetter.js'
-import PrivilegeLevels from '../Authorization/PrivilegeLevels.js'
-import SessionManager from '../Authentication/SessionManager.js'
-import Sources from '../Authorization/Sources.js'
-import UserGetter from '../User/UserGetter.js'
+import ProjectHelper from './ProjectHelper.mjs'
+import ProjectGetter from './ProjectGetter.mjs'
+import PrivilegeLevels from '../Authorization/PrivilegeLevels.mjs'
+import SessionManager from '../Authentication/SessionManager.mjs'
+import Sources from '../Authorization/Sources.mjs'
+import UserGetter from '../User/UserGetter.mjs'
 import SurveyHandler from '../Survey/SurveyHandler.mjs'
-import TagsHandler from '../Tags/TagsHandler.js'
+import TagsHandler from '../Tags/TagsHandler.mjs'
 import { expressify } from '@overleaf/promise-utils'
 import logger from '@overleaf/logger'
-import Features from '../../infrastructure/Features.js'
-import SubscriptionViewModelBuilder from '../Subscription/SubscriptionViewModelBuilder.js'
-import NotificationsHandler from '../Notifications/NotificationsHandler.js'
-import Modules from '../../infrastructure/Modules.js'
+import Features from '../../infrastructure/Features.mjs'
+import SubscriptionViewModelBuilder from '../Subscription/SubscriptionViewModelBuilder.mjs'
+import NotificationsHandler from '../Notifications/NotificationsHandler.mjs'
+import Modules from '../../infrastructure/Modules.mjs'
 import { OError, V1ConnectionError } from '../Errors/Errors.js'
-import { User } from '../../models/User.js'
-import UserPrimaryEmailCheckHandler from '../User/UserPrimaryEmailCheckHandler.js'
+import { User } from '../../models/User.mjs'
+import UserPrimaryEmailCheckHandler from '../User/UserPrimaryEmailCheckHandler.mjs'
 import UserController from '../User/UserController.mjs'
-import NotificationsBuilder from '../Notifications/NotificationsBuilder.js'
-import GeoIpLookup from '../../infrastructure/GeoIpLookup.js'
-import SplitTestHandler from '../SplitTests/SplitTestHandler.js'
-import SplitTestSessionHandler from '../SplitTests/SplitTestSessionHandler.js'
+import NotificationsBuilder from '../Notifications/NotificationsBuilder.mjs'
+import GeoIpLookup from '../../infrastructure/GeoIpLookup.mjs'
+import SplitTestHandler from '../SplitTests/SplitTestHandler.mjs'
+import SplitTestSessionHandler from '../SplitTests/SplitTestSessionHandler.mjs'
 import TutorialHandler from '../Tutorial/TutorialHandler.mjs'
-import SubscriptionHelper from '../Subscription/SubscriptionHelper.js'
-import PermissionsManager from '../Authorization/PermissionsManager.js'
-import AnalyticsManager from '../Analytics/AnalyticsManager.js'
+import SubscriptionHelper from '../Subscription/SubscriptionHelper.mjs'
+import PermissionsManager from '../Authorization/PermissionsManager.mjs'
+import AnalyticsManager from '../Analytics/AnalyticsManager.mjs'
+import { OnboardingDataCollection } from '../../models/OnboardingDataCollection.mjs'
+import UserSettingsHelper from './UserSettingsHelper.mjs'
 
 /**
  * @import { GetProjectsRequest, GetProjectsResponse, AllUsersProjects, MongoProject, FormattedProject, MongoTag } from "./types"
@@ -50,6 +53,11 @@ const _ssoAvailable = (affiliation, session, linkedInstitutionIds) => {
   // institution.confirmed is for the domain being confirmed, not the email
   // Do not show SSO UI for unconfirmed domains
   if (!affiliation.institution.confirmed) return false
+
+  // If ssoEnabled = true and group.domainCaptureEnabled = true
+  // then Commons is migrating to group subscription and we do not want to prompt
+  // linking through Commons SSO
+  if (affiliation?.group?.domainCaptureEnabled) return false
 
   // Could have multiple emails at the same institution, and if any are
   // linked to the institution then do not show notification for others
@@ -157,7 +165,7 @@ async function projectListPage(req, res, next) {
   })
   const user = await User.findById(
     userId,
-    `email emails features alphaProgram betaProgram lastPrimaryEmailCheck lastActive signUpDate refProviders${
+    `email emails features alphaProgram betaProgram lastPrimaryEmailCheck lastActive signUpDate ace refProviders${
       isSaas ? ' enrollment writefull completedTutorials aiErrorAssistant' : ''
     }`
   )
@@ -314,14 +322,23 @@ async function projectListPage(req, res, next) {
     if (samlSession) {
       // Notification institution SSO: After SSO Linked
       if (samlSession.linked) {
+        let templateKey = 'notification_institution_sso_linked'
+
+        if (
+          samlSession.userCreatedViaDomainCapture &&
+          samlSession.managedUsersEnabled
+        ) {
+          templateKey =
+            'notification_account_created_via_group_domain_capture_and_managed_users_enabled'
+        } else if (samlSession.domainCaptureEnabled) {
+          templateKey = 'notification_group_sso_linked'
+        }
         notificationsInstitution.push({
           email: samlSession.institutionEmail,
           institutionName:
             samlSession.linked.universityName ||
             samlSession.linked.providerName,
-          templateKey: samlSession.domainCaptureEnabled
-            ? 'notification_group_sso_linked'
-            : 'notification_institution_sso_linked',
+          templateKey,
         })
       }
 
@@ -382,7 +399,7 @@ async function projectListPage(req, res, next) {
   if (Settings.overleaf != null && req.ip !== user.lastLoginIp) {
     try {
       await NotificationsBuilder.promises
-        .ipMatcherAffiliation(user._id)
+        .ipMatcherAffiliation(user._id.toString())
         .create(req.ip)
     } catch (err) {
       logger.error(
@@ -413,18 +430,21 @@ async function projectListPage(req, res, next) {
 
   const { showUSGovBanner, usGovBannerVariant } = usGovBanner
 
+  const isUser30DaysOld = moment.utc().diff(user.signUpDate, 'days') > 30
+
   const showGroupsAndEnterpriseBanner =
     Features.hasFeature('saas') &&
     !showUSGovBanner &&
     !userIsMemberOfGroupSubscription &&
-    !hasPaidAffiliation
+    !hasPaidAffiliation &&
+    !inactiveTutorials.includes('groups-enterprise-banner-repeat') &&
+    isUser30DaysOld
 
   const groupsAndEnterpriseBannerVariant =
     showGroupsAndEnterpriseBanner &&
     _.sample(['on-premise', 'FOMO', 'FOMO', 'FOMO'])
 
   let showInrGeoBanner = false
-  let showBrlGeoBanner = false
   let showLATAMBanner = false
   let recommendedCurrency
 
@@ -438,7 +458,6 @@ async function projectListPage(req, res, next) {
     if (countryCode === 'IN') {
       showInrGeoBanner = true
     }
-    showBrlGeoBanner = countryCode === 'BR'
 
     showLATAMBanner = ['MX', 'CO', 'CL', 'PE'].includes(countryCode)
     // LATAM Banner needs to know which currency to display
@@ -463,6 +482,12 @@ async function projectListPage(req, res, next) {
     affiliation => affiliation.institution?.enterpriseCommons
   )
 
+  let onboardingDataCollection
+  let subjectArea
+  let usedLatex
+  let primaryOccupation
+  let role
+
   // customer.io: Premium nudge experiment
   // Only do customer-io-trial-conversion assignment for users not in India/China and not in group/commons
   let customerIoEnabled = false
@@ -482,6 +507,18 @@ async function projectListPage(req, res, next) {
           )
         if (cioAssignment.variant === 'enabled') {
           customerIoEnabled = true
+          onboardingDataCollection = await OnboardingDataCollection.findById(
+            userId,
+            'subjectArea usedLatex primaryOccupation role'
+          )
+
+          if (onboardingDataCollection) {
+            subjectArea = onboardingDataCollection.subjectArea
+            usedLatex = onboardingDataCollection.usedLatex
+            primaryOccupation = onboardingDataCollection.primaryOccupation
+            role = onboardingDataCollection.role
+          }
+
           AnalyticsManager.setUserPropertyForUserInBackground(
             userId,
             'customer-io-integration',
@@ -499,6 +536,18 @@ async function projectListPage(req, res, next) {
     }
   }
 
+  await SplitTestHandler.promises.getAssignment(
+    req,
+    res,
+    'themed-project-dashboard'
+  )
+
+  const userSettings = await UserSettingsHelper.buildUserSettings(
+    req,
+    res,
+    user
+  )
+
   res.render('project/list-react', {
     title: 'your_projects',
     usersBestSubscription,
@@ -507,6 +556,7 @@ async function projectListPage(req, res, next) {
     user,
     userAffiliations,
     userEmails,
+    userSettings,
     reconfirmedViaSAML,
     allInReconfirmNotificationPeriods,
     survey,
@@ -520,7 +570,6 @@ async function projectListPage(req, res, next) {
     showLATAMBanner,
     recommendedCurrency,
     showInrGeoBanner,
-    showBrlGeoBanner,
     projectDashboardReact: true, // used in navbar
     groupSsoSetupSuccess,
     joinedGroupName,
@@ -535,7 +584,17 @@ async function projectListPage(req, res, next) {
     customerIoEnabled,
     aiBlocked,
     hasAiAssist,
-    lastActive: user.lastActive,
+    lastActive: user.lastActive
+      ? Math.floor(user.lastActive.getTime() / 1000)
+      : null,
+    signUpDate: user.signUpDate
+      ? Math.floor(user.signUpDate.getTime() / 1000)
+      : null,
+    subjectArea,
+    primaryOccupation,
+    role,
+    usedLatex,
+    inactiveTutorials,
   })
 }
 

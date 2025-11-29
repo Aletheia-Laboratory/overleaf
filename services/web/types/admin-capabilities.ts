@@ -3,6 +3,9 @@ export type AdminCapability =
   | 'clear-session'
   | 'create-recurly-account'
   | 'create-subscription'
+  | 'delete-2fa'
+  | 'delete-project'
+  | 'modify-admin'
   | 'modify-feature-override'
   | 'modify-group'
   | 'modify-group-manager'
@@ -26,6 +29,7 @@ export type AdminCapability =
   | 'view-split-test'
   | 'view-user-additional-info'
   | 'create-stripe-account'
+  | 'update-stripe-customer-segment'
 
 export type AdminRole =
   | 'engagement'
@@ -33,5 +37,7 @@ export type AdminRole =
   | 'finance'
   | 'product'
   | 'sales'
+  | 'sales_support'
+  | 'super_admin'
   | 'support'
   | 'support_tier_1'

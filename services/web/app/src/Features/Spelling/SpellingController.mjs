@@ -1,8 +1,8 @@
 // @ts-check
 
-import SessionManager from '../Authentication/SessionManager.js'
-import LearnedWordsManager from './LearnedWordsManager.js'
-import { z, validateReq } from '../../infrastructure/Validation.js'
+import SessionManager from '../Authentication/SessionManager.mjs'
+import LearnedWordsManager from './LearnedWordsManager.mjs'
+import { z, validateReq } from '../../infrastructure/Validation.mjs'
 
 const learnSchema = z.object({
   body: z.object({

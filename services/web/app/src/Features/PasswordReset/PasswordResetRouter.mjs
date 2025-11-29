@@ -1,8 +1,8 @@
 import PasswordResetController from './PasswordResetController.mjs'
-import AuthenticationController from '../Authentication/AuthenticationController.js'
+import AuthenticationController from '../Authentication/AuthenticationController.mjs'
 import CaptchaMiddleware from '../../Features/Captcha/CaptchaMiddleware.mjs'
-import { RateLimiter } from '../../infrastructure/RateLimiter.js'
-import RateLimiterMiddleware from '../Security/RateLimiterMiddleware.js'
+import { RateLimiter } from '../../infrastructure/RateLimiter.mjs'
+import RateLimiterMiddleware from '../Security/RateLimiterMiddleware.mjs'
 
 const rateLimiter = new RateLimiter('password_reset_rate_limit', {
   points: 6,

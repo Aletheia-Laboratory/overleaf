@@ -15,14 +15,13 @@ import importOverleafModules from '../../../../../macros/import-overleaf-module.
 import UpgradeButton from './upgrade-button'
 import getMeta from '@/utils/meta'
 import { useIdeReactContext } from '@/features/ide-react/context/ide-react-context'
-import { BetaActions } from './beta-actions'
 
 const [publishModalModules] = importOverleafModules('publishModal')
 const SubmitProjectButton = publishModalModules?.import.NewPublishToolbarButton
 
 export const Toolbar = () => {
   const { view, restoreView } = useLayoutContext()
-  const { cobranding } = useEditorContext()
+  const { cobranding, isRestrictedTokenMember } = useEditorContext()
   const { permissionsLevel } = useIdeReactContext()
   const { t } = useTranslation()
   const shouldDisplaySubmitButton =
@@ -54,9 +53,8 @@ export const Toolbar = () => {
       </div>
       <ToolbarProjectTitle />
       <div className="ide-redesign-toolbar-actions">
-        <BetaActions />
         <OnlineUsers />
-        <ShowHistoryButton />
+        {!isRestrictedTokenMember && <ShowHistoryButton />}
         <ChangeLayoutButton />
         {shouldDisplaySubmitButton && cobranding && (
           <SubmitProjectButton cobranding={cobranding} />

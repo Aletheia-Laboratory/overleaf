@@ -10,6 +10,8 @@ import { WordCountServer } from './word-count-server'
 import { WordCountClient } from './word-count-client'
 import { isSplitTestEnabled } from '@/utils/splitTestUtils'
 import SplitTestBadge from '@/shared/components/split-test-badge'
+import { useEffect } from 'react'
+import { useEditorAnalytics } from '@/shared/hooks/use-editor-analytics'
 
 // NOTE: this component is only mounted when the modal is open
 export default function WordCountModalContent({
@@ -19,9 +21,18 @@ export default function WordCountModalContent({
 }) {
   const { t } = useTranslation()
 
+  const { sendEvent } = useEditorAnalytics()
+
+  useEffect(() => {
+    // record when the word count modal is opened
+    sendEvent('word-count-opened', {
+      mode: isSplitTestEnabled('word-count-client') ? 'client' : 'server',
+    })
+  }, [sendEvent])
+
   return (
     <>
-      <OLModalHeader closeButton>
+      <OLModalHeader>
         <OLModalTitle>
           {t('word_count_lower')}{' '}
           <SplitTestBadge

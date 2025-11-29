@@ -70,11 +70,16 @@ export async function downloadBlobToDir(historyId, blob, tmpDir) {
  * @return {Promise<void>}
  */
 export async function uploadBlobToBackup(historyId, blob, path, persistor) {
-  const md5 = Crypto.createHash('md5')
   const filePathCompressed = path + '.gz'
   let backupSource
   let contentEncoding
   let size
+  const timer = setTimeout(function () {
+    logger.warn(
+      { historyId, blob, path, size },
+      'blob upload still active after 1 minute'
+    )
+  }, 60 * 1000)
   try {
     if (blob.getStringLength()) {
       backupSource = filePathCompressed
@@ -86,7 +91,6 @@ export async function uploadBlobToBackup(historyId, blob, path, persistor) {
         async function* (source) {
           for await (const chunk of source) {
             size += chunk.byteLength
-            md5.update(chunk)
             yield chunk
           }
         },
@@ -97,10 +101,6 @@ export async function uploadBlobToBackup(historyId, blob, path, persistor) {
     } else {
       backupSource = path
       size = blob.getByteLength()
-      await Stream.promises.pipeline(
-        fs.createReadStream(path, { highWaterMark: HIGHWATER_MARK }),
-        md5
-      )
     }
     const key = makeProjectKey(historyId, blob.getHash())
     await persistor.sendStream(
@@ -111,11 +111,11 @@ export async function uploadBlobToBackup(historyId, blob, path, persistor) {
         contentEncoding,
         contentType: 'application/octet-stream',
         contentLength: size,
-        sourceMd5: md5.digest('hex'),
         ifNoneMatch: '*',
       }
     )
   } finally {
+    clearTimeout(timer)
     if (backupSource === filePathCompressed) {
       try {
         await fs.promises.rm(filePathCompressed, { force: true })
@@ -240,11 +240,13 @@ export async function backupBlob(historyId, blob, tmpPath, persistor) {
       // record that we backed it up already
       await storeBlobBackup(projectId, hash)
       recordBackupConclusion('failure', 'already_backed_up')
+      // Blob already backed up so report success
       return
     }
-    // eventually queue this for retry - for now this will be fixed by running the script
     recordBackupConclusion('failure')
     logger.warn({ error, projectId, hash }, 'Failed to upload blob to backup')
+    // Always throw an exception if the blob is not backed up
+    throw error
   } finally {
     logger.debug({ projectId, hash }, 'Ended blob backup')
   }

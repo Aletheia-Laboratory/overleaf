@@ -1,25 +1,25 @@
 import { callbackify } from 'node:util'
 import _ from 'lodash'
 import OError from '@overleaf/o-error'
-import SubscriptionUpdater from './SubscriptionUpdater.js'
-import SubscriptionLocator from './SubscriptionLocator.js'
+import SubscriptionUpdater from './SubscriptionUpdater.mjs'
+import SubscriptionLocator from './SubscriptionLocator.mjs'
 import SubscriptionController from './SubscriptionController.mjs'
-import SubscriptionHelper from './SubscriptionHelper.js'
-import { Subscription } from '../../models/Subscription.js'
-import { User } from '../../models/User.js'
-import PlansLocator from './PlansLocator.js'
-import TeamInvitesHandler from './TeamInvitesHandler.js'
-import GroupPlansData from './GroupPlansData.js'
-import Modules from '../../infrastructure/Modules.js'
-import PaymentProviderEntities from './PaymentProviderEntities.js'
+import SubscriptionHelper from './SubscriptionHelper.mjs'
+import { Subscription } from '../../models/Subscription.mjs'
+import { User } from '../../models/User.mjs'
+import PlansLocator from './PlansLocator.mjs'
+import TeamInvitesHandler from './TeamInvitesHandler.mjs'
+import GroupPlansData from './GroupPlansData.mjs'
+import Modules from '../../infrastructure/Modules.mjs'
+import PaymentProviderEntities from './PaymentProviderEntities.mjs'
 import {
   ManuallyCollectedError,
   PendingChangeError,
   InactiveError,
   HasPastDueInvoiceError,
   HasNoAdditionalLicenseWhenManuallyCollectedError,
-} from './Errors.js'
-import EmailHelper from '../Helpers/EmailHelper.js'
+} from './Errors.mjs'
+import EmailHelper from '../Helpers/EmailHelper.mjs'
 import { InvalidEmailError } from '../Errors/Errors.js'
 
 const MEMBERS_LIMIT_ADD_ON_CODE =

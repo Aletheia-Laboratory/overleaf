@@ -30,7 +30,10 @@ body {
       transparent,
       var(--ide-rail-header-subdued-button-hover-background),
       transparent,
-      true
+      true,
+      var(--content-disabled-themed),
+      var(--bg-disabled-themed),
+      var(--bg-disabled-themed)
     );
   }
 }
@@ -88,6 +91,12 @@ body {
   .ide-rail-tab-link-icon {
     line-height: 32px;
     font-size: 20px;
+  }
+
+  .ide-rail-tab-img-icon {
+    width: 20px;
+    max-height: 32px;
+    object-fit: contain;
   }
 
   &.open-rail {

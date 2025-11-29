@@ -12,7 +12,6 @@ import { MathDropdown } from './math-dropdown'
 import { TableDropdown } from './table-dropdown'
 import { LegacyTableDropdown } from './table-inserter-dropdown-legacy'
 import { withinFormattingCommand } from '@/features/source-editor/utils/tree-operations/formatting'
-import { isSplitTestEnabled } from '@/utils/splitTestUtils'
 import { isMac } from '@/shared/utils/os'
 import { useProjectContext } from '@/shared/context/project-context'
 import { useEditorPropertiesContext } from '@/features/ide-react/context/editor-properties-context'
@@ -41,8 +40,6 @@ export const ToolbarItems: FC<{
 
   const symbolPaletteAvailable = getMeta('ol-symbolPaletteAvailable')
   const showGroup = (group: string) => !overflowed || overflowed.has(group)
-
-  const wfRebrandEnabled = isSplitTestEnabled('overleaf-assist-bundle')
 
   return (
     <>
@@ -85,7 +82,7 @@ export const ToolbarItems: FC<{
             >
               <ToolbarButton
                 id="toolbar-format-bold"
-                label={t('toolbar_format_bold')}
+                label={t('toolbar_bold')}
                 command={commands.toggleBold}
                 active={isActive('\\textbf')}
                 icon="format_bold"
@@ -93,7 +90,7 @@ export const ToolbarItems: FC<{
               />
               <ToolbarButton
                 id="toolbar-format-italic"
-                label={t('toolbar_format_italic')}
+                label={t('toolbar_italic')}
                 command={commands.toggleItalic}
                 active={isActive('\\textit')}
                 icon="format_italic"
@@ -111,7 +108,7 @@ export const ToolbarItems: FC<{
               {symbolPaletteAvailable && (
                 <ToolbarButton
                   id="toolbar-toggle-symbol-palette"
-                  label={t('toolbar_toggle_symbol_palette')}
+                  label={t('toolbar_insert_symbol')}
                   active={showSymbolPalette}
                   command={toggleSymbolPalette}
                   icon="Ω"
@@ -155,11 +152,7 @@ export const ToolbarItems: FC<{
                 icon="book_5"
               />
               <InsertFigureDropdown />
-              {wfRebrandEnabled && writefullInstance ? (
-                <TableDropdown />
-              ) : (
-                <LegacyTableDropdown />
-              )}
+              {writefullInstance ? <TableDropdown /> : <LegacyTableDropdown />}
             </div>
           )}
           {showGroup('group-list') && (
@@ -170,7 +163,7 @@ export const ToolbarItems: FC<{
             >
               <ToolbarButton
                 id="toolbar-bullet-list"
-                label={t('toolbar_bullet_list')}
+                label={t('toolbar_bulleted_list')}
                 command={commands.toggleBulletList}
                 icon="format_list_bulleted"
               />

@@ -6,8 +6,8 @@ import {
   db,
   ObjectId,
   READ_PREFERENCE_SECONDARY,
-} from '../app/src/infrastructure/mongodb.js'
-import DocstoreManager from '../app/src/Features/Docstore/DocstoreManager.js'
+} from '../app/src/infrastructure/mongodb.mjs'
+import DocstoreManager from '../app/src/Features/Docstore/DocstoreManager.mjs'
 import { NotFoundError } from '../app/src/Features/Errors/Errors.js'
 import { scriptRunner } from './lib/ScriptRunner.mjs'
 

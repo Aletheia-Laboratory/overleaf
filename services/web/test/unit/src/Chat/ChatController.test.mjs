@@ -29,7 +29,7 @@ describe('ChatController', function () {
       default: ctx.settings,
     }))
 
-    vi.doMock('../../../../app/src/Features/Chat/ChatApiHandler.js', () => ({
+    vi.doMock('../../../../app/src/Features/Chat/ChatApiHandler.mjs', () => ({
       default: ctx.ChatApiHandler,
     }))
 
@@ -38,31 +38,31 @@ describe('ChatController', function () {
     }))
 
     vi.doMock(
-      '../../../../app/src/Features/Editor/EditorRealTimeController.js',
+      '../../../../app/src/Features/Editor/EditorRealTimeController.mjs',
       () => ({
         default: ctx.EditorRealTimeController,
       })
     )
 
     vi.doMock(
-      '../../../../app/src/Features/Authentication/SessionManager.js',
+      '../../../../app/src/Features/Authentication/SessionManager.mjs',
       () => ({
         default: ctx.SessionManager,
       })
     )
 
-    vi.doMock('../../../../app/src/Features/User/UserInfoManager.js', () => ({
+    vi.doMock('../../../../app/src/Features/User/UserInfoManager.mjs', () => ({
       default: ctx.UserInfoManager,
     }))
 
     vi.doMock(
-      '../../../../app/src/Features/User/UserInfoController.js',
+      '../../../../app/src/Features/User/UserInfoController.mjs',
       () => ({
         default: ctx.UserInfoController,
       })
     )
 
-    vi.doMock('../../../../app/src/infrastructure/Modules.js', () => ({
+    vi.doMock('../../../../app/src/infrastructure/Modules.mjs', () => ({
       default: ctx.Modules,
     }))
 

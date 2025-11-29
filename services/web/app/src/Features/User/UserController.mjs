@@ -1,27 +1,27 @@
-import UserHandler from './UserHandler.js'
-import UserDeleter from './UserDeleter.js'
-import UserGetter from './UserGetter.js'
-import { User } from '../../models/User.js'
-import NewsletterManager from '../Newsletter/NewsletterManager.js'
+import UserHandler from './UserHandler.mjs'
+import UserDeleter from './UserDeleter.mjs'
+import UserGetter from './UserGetter.mjs'
+import { User } from '../../models/User.mjs'
+import NewsletterManager from '../Newsletter/NewsletterManager.mjs'
 import logger from '@overleaf/logger'
 import metrics from '@overleaf/metrics'
-import AuthenticationManager from '../Authentication/AuthenticationManager.js'
-import SessionManager from '../Authentication/SessionManager.js'
-import Features from '../../infrastructure/Features.js'
-import { z, validateReq } from '../../infrastructure/Validation.js'
-import UserAuditLogHandler from './UserAuditLogHandler.js'
-import UserSessionsManager from './UserSessionsManager.js'
-import UserUpdater from './UserUpdater.js'
+import AuthenticationManager from '../Authentication/AuthenticationManager.mjs'
+import SessionManager from '../Authentication/SessionManager.mjs'
+import Features from '../../infrastructure/Features.mjs'
+import { z, validateReq } from '../../infrastructure/Validation.mjs'
+import UserAuditLogHandler from './UserAuditLogHandler.mjs'
+import UserSessionsManager from './UserSessionsManager.mjs'
+import UserUpdater from './UserUpdater.mjs'
 import Errors from '../Errors/Errors.js'
-import HttpErrorHandler from '../Errors/HttpErrorHandler.js'
+import HttpErrorHandler from '../Errors/HttpErrorHandler.mjs'
 import OError from '@overleaf/o-error'
-import EmailHandler from '../Email/EmailHandler.js'
-import UrlHelper from '../Helpers/UrlHelper.js'
+import EmailHandler from '../Email/EmailHandler.mjs'
+import UrlHelper from '../Helpers/UrlHelper.mjs'
 import { promisify } from 'node:util'
 import { expressify } from '@overleaf/promise-utils'
-import { acceptsJson } from '../../infrastructure/RequestContentTypeDetection.js'
-import Modules from '../../infrastructure/Modules.js'
-import OneTimeTokenHandler from '../Security/OneTimeTokenHandler.js'
+import { acceptsJson } from '../../infrastructure/RequestContentTypeDetection.mjs'
+import Modules from '../../infrastructure/Modules.mjs'
+import OneTimeTokenHandler from '../Security/OneTimeTokenHandler.mjs'
 
 async function _sendSecurityAlertClearedSessions(user) {
   const emailOptions = {
@@ -407,6 +407,9 @@ async function updateUserSettings(req, res, next) {
   if (body.enableNewEditor != null) {
     user.ace.enableNewEditor = Boolean(body.enableNewEditor)
   }
+  if (body.darkModePdf != null) {
+    user.ace.darkModePdf = Boolean(body.darkModePdf)
+  }
   await user.save()
 
   const newEmail = body.email?.trim().toLowerCase()
@@ -472,6 +475,16 @@ async function doLogout(req) {
   const user = SessionManager.getSessionUser(req.session)
   logger.debug({ user }, 'logging out')
   const sessionId = req.sessionID
+
+  if (user != null) {
+    UserAuditLogHandler.addEntryInBackground(
+      user._id,
+      'logout',
+      user._id,
+      req.ip,
+      {}
+    )
+  }
 
   if (typeof req.logout === 'function') {
     // passport logout

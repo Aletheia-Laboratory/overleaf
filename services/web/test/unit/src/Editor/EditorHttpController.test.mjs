@@ -2,8 +2,8 @@ import { beforeEach, describe, it, vi, expect } from 'vitest'
 import sinon from 'sinon'
 import mongodb from 'mongodb-legacy'
 import Errors from '../../../../app/src/Features/Errors/Errors.js'
-import MockRequest from '../helpers/MockRequest.js'
-import MockResponse from '../helpers/MockResponse.js'
+import MockRequest from '../helpers/MockRequestVitest.mjs'
+import MockResponse from '../helpers/MockResponseVitest.mjs'
 
 const { ObjectId } = mongodb
 
@@ -52,8 +52,8 @@ describe('EditorHttpController', function () {
     ctx.source = 'editor'
 
     ctx.parentFolderId = 'mock-folder-id'
-    ctx.req = new MockRequest()
-    ctx.res = new MockResponse()
+    ctx.req = new MockRequest(vi)
+    ctx.res = new MockResponse(vi)
     ctx.next = sinon.stub()
     ctx.token = null
     ctx.docLines = ['hello', 'overleaf']
@@ -168,26 +168,29 @@ describe('EditorHttpController', function () {
     vi.mock('../../../../app/src/Features/Errors/Errors.js', () =>
       vi.importActual('../../../../app/src/Features/Errors/Errors.js')
     )
-    vi.doMock('../../../../app/src/Features/Project/ProjectDeleter.js', () => ({
-      default: ctx.ProjectDeleter,
-    }))
-    vi.doMock('../../../../app/src/Features/Project/ProjectGetter.js', () => ({
+    vi.doMock(
+      '../../../../app/src/Features/Project/ProjectDeleter.mjs',
+      () => ({
+        default: ctx.ProjectDeleter,
+      })
+    )
+    vi.doMock('../../../../app/src/Features/Project/ProjectGetter.mjs', () => ({
       default: ctx.ProjectGetter,
     }))
     vi.doMock(
-      '../../../../app/src/Features/Authorization/AuthorizationManager.js',
+      '../../../../app/src/Features/Authorization/AuthorizationManager.mjs',
       () => ({
         default: ctx.AuthorizationManager,
       })
     )
     vi.doMock(
-      '../../../../app/src/Features/Project/ProjectEditorHandler.js',
+      '../../../../app/src/Features/Project/ProjectEditorHandler.mjs',
       () => ({
         default: ctx.ProjectEditorHandler,
       })
     )
     vi.doMock(
-      '../../../../app/src/Features/Editor/EditorController.js',
+      '../../../../app/src/Features/Editor/EditorController.mjs',
       () => ({
         default: ctx.EditorController,
       })
@@ -196,58 +199,58 @@ describe('EditorHttpController', function () {
       default: ctx.Metrics,
     }))
     vi.doMock(
-      '../../../../app/src/Features/Collaborators/CollaboratorsGetter.js',
+      '../../../../app/src/Features/Collaborators/CollaboratorsGetter.mjs',
       () => ({
         default: ctx.CollaboratorsGetter,
       })
     )
     vi.doMock(
-      '../../../../app/src/Features/Collaborators/CollaboratorsHandler.js',
+      '../../../../app/src/Features/Collaborators/CollaboratorsHandler.mjs',
       () => ({
         default: ctx.CollaboratorsHandler,
       })
     )
     vi.doMock(
-      '../../../../app/src/Features/Collaborators/CollaboratorsInviteGetter.js',
+      '../../../../app/src/Features/Collaborators/CollaboratorsInviteGetter.mjs',
       () => ({
         default: ctx.CollaboratorsInviteGetter,
       })
     )
     vi.doMock(
-      '../../../../app/src/Features/TokenAccess/TokenAccessHandler.js',
+      '../../../../app/src/Features/TokenAccess/TokenAccessHandler.mjs',
       () => ({
         default: ctx.TokenAccessHandler,
       })
     )
     vi.doMock(
-      '../../../../app/src/Features/Authentication/SessionManager.js',
+      '../../../../app/src/Features/Authentication/SessionManager.mjs',
       () => ({
         default: ctx.SessionManager,
       })
     )
-    vi.doMock('../../../../app/src/infrastructure/FileWriter.js', () => ({
+    vi.doMock('../../../../app/src/infrastructure/FileWriter.mjs', () => ({
       default: ctx.FileWriter,
     }))
     vi.doMock(
-      '../../../../app/src/Features/Project/ProjectEntityUpdateHandler.js',
+      '../../../../app/src/Features/Project/ProjectEntityUpdateHandler.mjs',
       () => ({
         default: ctx.ProjectEntityUpdateHandler,
       })
     )
     vi.doMock(
-      '../../../../app/src/Features/Docstore/DocstoreManager.js',
+      '../../../../app/src/Features/Docstore/DocstoreManager.mjs',
       () => ({
         default: ctx.DocstoreManager,
       })
     )
     vi.doMock(
-      '../../../../app/src/Features/Errors/HttpErrorHandler.js',
+      '../../../../app/src/Features/Errors/HttpErrorHandler.mjs',
       () => ({
         default: ctx.HttpErrorHandler,
       })
     )
     vi.doMock(
-      '../../../../app/src/Features/SplitTests/SplitTestHandler.js',
+      '../../../../app/src/Features/SplitTests/SplitTestHandler.mjs',
       () => ({
         default: ctx.SplitTestHandler,
       })
@@ -258,7 +261,7 @@ describe('EditorHttpController', function () {
         default: {},
       })
     )
-    vi.doMock('../../../../app/src/Features/User/UserGetter.js', () => ({
+    vi.doMock('../../../../app/src/Features/User/UserGetter.mjs', () => ({
       default: ctx.UserGetter,
     }))
 
@@ -299,7 +302,7 @@ describe('EditorHttpController', function () {
       })
 
       it('should return the project and privilege level', function (ctx) {
-        expect(ctx.res.json).to.have.been.calledWith({
+        expect(ctx.res.json).toHaveBeenCalledWith({
           project: ctx.projectView,
           privilegeLevel: 'owner',
           isRestrictedUser: false,
@@ -356,7 +359,7 @@ describe('EditorHttpController', function () {
       })
 
       it('should mark the user as restricted, and hide details of owner', function (ctx) {
-        expect(ctx.res.json).to.have.been.calledWith({
+        expect(ctx.res.json).toHaveBeenCalledWith({
           project: ctx.reducedProjectView,
           privilegeLevel: 'readOnly',
           isRestrictedUser: true,
@@ -412,7 +415,7 @@ describe('EditorHttpController', function () {
       })
 
       it('should mark the user as restricted', function (ctx) {
-        expect(ctx.res.json).to.have.been.calledWith({
+        expect(ctx.res.json).toHaveBeenCalledWith({
           project: ctx.reducedProjectView,
           privilegeLevel: 'readOnly',
           isRestrictedUser: true,
@@ -446,7 +449,7 @@ describe('EditorHttpController', function () {
       })
 
       it('should mark the user as being a token-access member', function (ctx) {
-        expect(ctx.res.json).to.have.been.calledWith({
+        expect(ctx.res.json).toHaveBeenCalledWith({
           project: ctx.projectView,
           privilegeLevel: 'readAndWrite',
           isRestrictedUser: false,
@@ -502,7 +505,7 @@ describe('EditorHttpController', function () {
       })
 
       it('should send the doc back as JSON', function (ctx) {
-        expect(ctx.res.json).to.have.been.calledWith(ctx.doc)
+        expect(ctx.res.json).toHaveBeenCalledWith(ctx.doc)
       })
     })
 
@@ -524,8 +527,8 @@ describe('EditorHttpController', function () {
         )
         await new Promise(resolve => {
           ctx.res.callback = () => {
-            expect(ctx.res.body).to.equal('"project_has_too_many_files"')
-            expect(ctx.res.status).to.have.been.calledWith(400)
+            expect(ctx.res.body).to.equal('"project_has_too_many_files_limit"')
+            expect(ctx.res.status).toHaveBeenCalledWith(400)
             resolve()
           }
           ctx.EditorHttpController.addDoc(ctx.req, ctx.res)
@@ -562,7 +565,7 @@ describe('EditorHttpController', function () {
       })
 
       it('should send the folder back as JSON', function (ctx) {
-        expect(ctx.res.json).to.have.been.calledWith(ctx.folder)
+        expect(ctx.res.json).toHaveBeenCalledWith(ctx.folder)
       })
     })
 
@@ -584,7 +587,7 @@ describe('EditorHttpController', function () {
             new Error('project_has_too_many_files')
           )
           ctx.res.callback = () => {
-            expect(ctx.res.body).to.equal('"project_has_too_many_files"')
+            expect(ctx.res.body).to.equal('"project_has_too_many_files_limit"')
             expect(ctx.res.statusCode).to.equal(400)
             resolve()
           }
@@ -643,7 +646,7 @@ describe('EditorHttpController', function () {
       })
 
       it('should send back a success response', function (ctx) {
-        expect(ctx.res.sendStatus).to.have.been.calledWith(204)
+        expect(ctx.res.sendStatus).toHaveBeenCalledWith(204)
       })
     })
     describe('with long name', function () {

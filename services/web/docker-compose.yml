@@ -10,11 +10,15 @@ services:
       - ../../node_modules:/overleaf/node_modules
       - ../../libraries:/overleaf/libraries
       - ../../bin/shared/wait_for_it:/overleaf/bin/shared/wait_for_it
+      - ../../tools/migrations:/overleaf/tools/migrations
     working_dir: /overleaf/services/web
     env_file: docker-compose.common.env
     environment:
       BASE_CONFIG:
       OVERLEAF_CONFIG:
+      CI:
+      MODULE_NAME:
+      MOCHA_ROOT_SUITE_NAME:
       MOCHA_GREP: ${MOCHA_GREP}
       LOG_LEVEL: ${LOG_LEVEL:-}
       NODE_ENV: test
@@ -34,12 +38,16 @@ services:
       - ../../node_modules:/overleaf/node_modules
       - ../../libraries:/overleaf/libraries
       - ../../bin/shared/wait_for_it:/overleaf/bin/shared/wait_for_it
+      - ../../tools/migrations:/overleaf/tools/migrations
     user: node
     working_dir: /overleaf/services/web
     env_file: docker-compose.common.env
     environment:
       BASE_CONFIG:
       OVERLEAF_CONFIG:
+      CI:
+      MODULE_NAME:
+      MOCHA_ROOT_SUITE_NAME:
       MOCHA_GREP: ${MOCHA_GREP}
       LOG_LEVEL: ${LOG_LEVEL:-}
       MONGO_SERVER_SELECTION_TIMEOUT: 600000
@@ -68,6 +76,8 @@ services:
       - ../../libraries:/overleaf/libraries
     working_dir: /overleaf/services/web
     environment:
+      CI:
+      MOCHA_ROOT_SUITE_NAME:
       MOCHA_GREP: ${MOCHA_GREP}
       NODE_OPTIONS: "--unhandled-rejections=strict"
       VERBOSE_LOGGING:
@@ -79,8 +89,11 @@ services:
     volumes:
       - ../../:/overleaf
     working_dir: /overleaf/services/web
+    user: "${DOCKER_USER:-1000:1000}"
     environment:
       VERBOSE_LOGGING:
+      CI:
+      MOCHA_ROOT_SUITE_NAME:
       CYPRESS_SPEC_PATTERN: ${CYPRESS_SPEC_PATTERN:-}
       CYPRESS_EXCLUDE_SPEC_PATTERN: ${CYPRESS_EXCLUDE_SPEC_PATTERN:-}
     entrypoint: npm
@@ -99,6 +112,8 @@ services:
       - ../../libraries:/overleaf/libraries
     working_dir: /overleaf/services/web
     environment:
+      CI:
+      MOCHA_ROOT_SUITE_NAME:
       NODE_OPTIONS: "--unhandled-rejections=strict"
       VERBOSE_LOGGING:
     command: npm run --silent test:writefull

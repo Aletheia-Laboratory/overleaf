@@ -2,9 +2,9 @@ import { vi, assert, expect } from 'vitest'
 import sinon from 'sinon'
 import MockRequest from '../helpers/MockRequest.js'
 import MockResponse from '../helpers/MockResponse.js'
-import SubscriptionErrors from '../../../../app/src/Features/Subscription/Errors.js'
-import SubscriptionHelper from '../../../../app/src/Features/Subscription/SubscriptionHelper.js'
-import { AI_ADD_ON_CODE } from '../../../../app/src/Features/Subscription/AiHelper.js'
+import SubscriptionErrors from '../../../../app/src/Features/Subscription/Errors.mjs'
+import SubscriptionHelper from '../../../../app/src/Features/Subscription/SubscriptionHelper.mjs'
+import { AI_ADD_ON_CODE } from '../../../../app/src/Features/Subscription/AiHelper.mjs'
 
 const modulePath =
   '../../../../app/src/Features/Subscription/SubscriptionController.mjs'
@@ -264,17 +264,6 @@ describe('SubscriptionController', function () {
       })
     )
 
-    vi.doMock('celebrate', () => ({
-      default: (ctx.celebrate = {
-        celebrate: sinon.stub(),
-        errors: sinon.stub(),
-        Joi: {
-          any: sinon.stub(),
-          extend: sinon.stub(),
-        },
-      }),
-    }))
-
     vi.doMock(
       '../../../../app/src/Features/Subscription/GroupPlansData',
       () => ({
@@ -506,6 +495,28 @@ describe('SubscriptionController', function () {
 
     it('should load an empty list of groups with settings available', function (ctx) {
       expect(ctx.data.groupSettingsEnabledFor).to.deep.equal([])
+    })
+
+    describe('when errorCode query param is present', function () {
+      beforeEach(async function (ctx) {
+        ctx.req.query.errorCode = 'payment_failed'
+        await new Promise((resolve, reject) => {
+          ctx.res.render = (view, data) => {
+            ctx.data = data
+            expect(view).to.equal('subscriptions/dashboard-react')
+            resolve()
+          }
+          ctx.SubscriptionController.userSubscriptionPage(
+            ctx.req,
+            ctx.res,
+            ctx.rejectOnError(reject)
+          )
+        })
+      })
+
+      it('should pass redirectedPaymentErrorCode to the view', function (ctx) {
+        expect(ctx.data.redirectedPaymentErrorCode).to.equal('payment_failed')
+      })
     })
   })
 
@@ -1115,6 +1126,57 @@ describe('SubscriptionController', function () {
     })
   })
 
+  describe('removeAddon', function () {
+    beforeEach(function (ctx) {
+      ctx.SessionManager.getSessionUser.returns(ctx.user)
+      ctx.next = sinon.stub()
+      ctx.req.params = { addOnCode: AI_ADD_ON_CODE }
+      ctx.SubscriptionHandler.promises.removeAddon = sinon.stub().resolves()
+    })
+
+    it('should return 200 on successful removal of AI add-on', async function (ctx) {
+      ctx.res.sendStatus = sinon.spy()
+
+      await ctx.SubscriptionController.removeAddon(ctx.req, ctx.res, ctx.next)
+
+      expect(ctx.SubscriptionHandler.promises.removeAddon).to.have.been.called
+      expect(
+        ctx.SubscriptionHandler.promises.removeAddon
+      ).to.have.been.calledWith(ctx.user, AI_ADD_ON_CODE)
+      expect(ctx.res.sendStatus).to.have.been.calledWith(200)
+      expect(ctx.logger.debug).to.have.been.calledWith(
+        { userId: ctx.user._id, addOnCode: AI_ADD_ON_CODE },
+        'removing add-ons'
+      )
+    })
+
+    it('should return 404 if the add-on code is not AI_ADD_ON_CODE', async function (ctx) {
+      ctx.req.params = { addOnCode: 'some-other-addon' }
+      ctx.res.sendStatus = sinon.spy()
+
+      await ctx.SubscriptionController.removeAddon(ctx.req, ctx.res, ctx.next)
+
+      expect(ctx.SubscriptionHandler.promises.removeAddon).to.not.have.been
+        .called
+      expect(ctx.res.sendStatus).to.have.been.calledWith(404)
+    })
+
+    it('should handle AddOnNotPresentError and send badRequest', async function (ctx) {
+      ctx.SubscriptionHandler.promises.removeAddon.rejects(
+        new SubscriptionErrors.AddOnNotPresentError()
+      )
+
+      await ctx.SubscriptionController.removeAddon(ctx.req, ctx.res, ctx.next)
+
+      expect(ctx.HttpErrorHandler.badRequest).to.have.been.calledWith(
+        ctx.req,
+        ctx.res,
+        'Your subscription does not contain the requested add-on',
+        { addon: AI_ADD_ON_CODE }
+      )
+    })
+  })
+
   describe('checkSubscriptionPauseStatus', function () {
     beforeEach(function (ctx) {
       ctx.user = {
@@ -1527,11 +1589,41 @@ describe('SubscriptionController', function () {
         await ctx.SubscriptionController.previewAddonPurchase(ctx.req, ctx.res)
 
         expect(ctx.res.render).to.have.been.calledWith(
-          'subscriptions/preview-change'
+          'subscriptions/preview-change',
+          sinon.match({
+            changePreview: sinon.match.object,
+            purchaseReferrer: 'fake-referrer',
+            redirectedPaymentErrorCode: undefined,
+          })
         )
         expect(
           ctx.SubscriptionHandler.promises.previewAddonPurchase
         ).to.have.been.calledWith(ctx.user._id, 'assistant')
+      })
+
+      it('should pass redirectedPaymentErrorCode to the view when errorCode query param is present', async function (ctx) {
+        const normalSubscription = {
+          _id: 'sub-123',
+          customAccount: false,
+          collectionMethod: 'automatic',
+        }
+        ctx.SubscriptionLocator.promises.getUsersSubscription.resolves(
+          normalSubscription
+        )
+        ctx.req.query.errorCode = 'payment_failed'
+
+        ctx.res.render = sinon.stub()
+
+        await ctx.SubscriptionController.previewAddonPurchase(ctx.req, ctx.res)
+
+        expect(ctx.res.render).to.have.been.calledWith(
+          'subscriptions/preview-change',
+          sinon.match({
+            changePreview: sinon.match.object,
+            purchaseReferrer: 'fake-referrer',
+            redirectedPaymentErrorCode: 'payment_failed',
+          })
+        )
       })
 
       it('should proceed with preview when customAccount is undefined and collectionMethod is automatic', async function (ctx) {

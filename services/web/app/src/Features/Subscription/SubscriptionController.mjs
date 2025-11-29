@@ -1,40 +1,40 @@
 // @ts-check
 
-import SessionManager from '../Authentication/SessionManager.js'
-import SubscriptionHandler from './SubscriptionHandler.js'
-import SubscriptionHelper from './SubscriptionHelper.js'
-import SubscriptionViewModelBuilder from './SubscriptionViewModelBuilder.js'
-import LimitationsManager from './LimitationsManager.js'
-import RecurlyWrapper from './RecurlyWrapper.js'
+import SessionManager from '../Authentication/SessionManager.mjs'
+import SubscriptionHandler from './SubscriptionHandler.mjs'
+import SubscriptionHelper from './SubscriptionHelper.mjs'
+import SubscriptionViewModelBuilder from './SubscriptionViewModelBuilder.mjs'
+import LimitationsManager from './LimitationsManager.mjs'
+import RecurlyWrapper from './RecurlyWrapper.mjs'
 import Settings from '@overleaf/settings'
 import logger from '@overleaf/logger'
-import GeoIpLookup from '../../infrastructure/GeoIpLookup.js'
-import FeaturesUpdater from './FeaturesUpdater.js'
-import GroupPlansData from './GroupPlansData.js'
-import V1SubscriptionManager from './V1SubscriptionManager.js'
-import AnalyticsManager from '../Analytics/AnalyticsManager.js'
-import RecurlyEventHandler from './RecurlyEventHandler.js'
+import GeoIpLookup from '../../infrastructure/GeoIpLookup.mjs'
+import FeaturesUpdater from './FeaturesUpdater.mjs'
+import GroupPlansData from './GroupPlansData.mjs'
+import V1SubscriptionManager from './V1SubscriptionManager.mjs'
+import AnalyticsManager from '../Analytics/AnalyticsManager.mjs'
+import RecurlyEventHandler from './RecurlyEventHandler.mjs'
 import { expressify } from '@overleaf/promise-utils'
 import OError from '@overleaf/o-error'
-import Errors from './Errors.js'
-import SplitTestHandler from '../SplitTests/SplitTestHandler.js'
-import AuthorizationManager from '../Authorization/AuthorizationManager.js'
-import Modules from '../../infrastructure/Modules.js'
+import Errors from './Errors.mjs'
+import SplitTestHandler from '../SplitTests/SplitTestHandler.mjs'
+import AuthorizationManager from '../Authorization/AuthorizationManager.mjs'
+import Modules from '../../infrastructure/Modules.mjs'
 import async from 'async'
-import HttpErrorHandler from '../Errors/HttpErrorHandler.js'
-import RecurlyClient from './RecurlyClient.js'
+import HttpErrorHandler from '../Errors/HttpErrorHandler.mjs'
+import RecurlyClient from './RecurlyClient.mjs'
 import {
   AI_ADD_ON_CODE,
   subscriptionChangeIsAiAssistUpgrade,
-} from './AiHelper.js'
-import PlansLocator from './PlansLocator.js'
-import { User } from '../../models/User.js'
-import UserGetter from '../User/UserGetter.js'
-import PermissionsManager from '../Authorization/PermissionsManager.js'
-import { sanitizeSessionUserForFrontEnd } from '../../infrastructure/FrontEndUser.js'
-import { z, validateReq } from '../../infrastructure/Validation.js'
+} from './AiHelper.mjs'
+import PlansLocator from './PlansLocator.mjs'
+import { User } from '../../models/User.mjs'
+import UserGetter from '../User/UserGetter.mjs'
+import PermissionsManager from '../Authorization/PermissionsManager.mjs'
+import { sanitizeSessionUserForFrontEnd } from '../../infrastructure/FrontEndUser.mjs'
+import { z, validateReq } from '../../infrastructure/Validation.mjs'
 import { IndeterminateInvoiceError } from '../Errors/Errors.js'
-import SubscriptionLocator from './SubscriptionLocator.js'
+import SubscriptionLocator from './SubscriptionLocator.mjs'
 
 const {
   DuplicateAddOnError,
@@ -157,7 +157,7 @@ async function checkSubscriptionPauseStatus(user) {
 /**
  * @import { SubscriptionChangeDescription } from '../../../../types/subscription/subscription-change-preview'
  * @import { SubscriptionChangePreview } from '../../../../types/subscription/subscription-change-preview'
- * @import { PaymentProviderSubscriptionChange } from './PaymentProviderEntities'
+ * @import { PaymentProviderSubscriptionChange } from './PaymentProviderEntities.mjs'
  * @import { PaymentMethod } from './types'
  */
 
@@ -169,6 +169,39 @@ function formatGroupPlansDataForDash() {
     sizes: [...groupPlanModalOptions.sizes],
     usages: [...groupPlanModalOptions.usages],
     priceByUsageTypeAndSize: JSON.parse(JSON.stringify(GroupPlansData)),
+  }
+}
+
+/**
+ * Trim the staffAccess object to only include allowed fields
+ * @param {Object} user - The user object with mongoose object fields
+ * @returns {Object} - User object with trimmed staffAccess
+ */
+function _trimStaffAccess(user) {
+  if (!user || !user.staffAccess) return user
+
+  const allowedFields = [
+    'publisherMetrics',
+    'publisherManagement',
+    'institutionMetrics',
+    'institutionManagement',
+    'groupMetrics',
+    'groupManagement',
+    'adminMetrics',
+    'splitTestMetrics',
+    'splitTestManagement',
+  ]
+
+  const trimmedStaffAccess = allowedFields.reduce((acc, key) => {
+    if (key in user.staffAccess) {
+      acc[key] = user.staffAccess[key]
+    }
+    return acc
+  }, {})
+
+  return {
+    ...user,
+    staffAccess: trimmedStaffAccess,
   }
 }
 
@@ -204,6 +237,7 @@ async function userSubscriptionPage(req, res) {
     await Modules.promises.hooks.fire('userCanExtendTrial', user)
   )?.[0]
   const fromPlansPage = req.query.hasSubscription
+  const redirectedPaymentErrorCode = req.query.errorCode
   const isInTrial = SubscriptionHelper.isInTrial(
     personalSubscription?.payment?.trialEndsAt
   )
@@ -213,7 +247,16 @@ async function userSubscriptionPage(req, res) {
       isInTrial
     )
 
-  AnalyticsManager.recordEventForSession(req.session, 'subscription-page-view')
+  const host = req.headers.host
+  const domain = host?.split('.')[0]
+
+  AnalyticsManager.recordEventForSession(
+    req.session,
+    'subscription-page-view',
+    {
+      domain,
+    }
+  )
 
   const groupPlansDataForDash = formatGroupPlansDataForDash()
 
@@ -291,12 +334,13 @@ async function userSubscriptionPage(req, res) {
   } = await UserGetter.promises.getWritefullData(user._id)
 
   const data = {
-    title: 'your_subscription',
+    title: 'your_subscriptions',
     plans: plansData?.plans,
     planCodesChangingAtTermEnd: plansData?.planCodesChangingAtTermEnd,
-    user,
+    user: _trimStaffAccess(user),
     hasSubscription,
     fromPlansPage,
+    redirectedPaymentErrorCode,
     personalSubscription,
     userCanExtendTrial,
     memberGroupSubscriptions,
@@ -465,6 +509,7 @@ async function previewAddonPurchase(req, res) {
   const userId = user._id
   const addOnCode = req.params.addOnCode
   const purchaseReferrer = req.query.purchaseReferrer
+  const redirectedPaymentErrorCode = req.query.errorCode
 
   if (addOnCode !== AI_ADD_ON_CODE) {
     return HttpErrorHandler.notFound(req, res, `Unknown add-on: ${addOnCode}`)
@@ -511,6 +556,12 @@ async function previewAddonPurchase(req, res) {
         '/user/subscription?redirect-reason=ai-assist-unavailable'
       )
     }
+    if (
+      err instanceof Error &&
+      err.constructor.name === 'PaymentServiceResourceNotFoundError'
+    ) {
+      return res.redirect('/user/subscription/plans#ai-assist')
+    }
     throw err
   }
 
@@ -530,6 +581,12 @@ async function previewAddonPurchase(req, res) {
   } catch (err) {
     if (err instanceof DuplicateAddOnError) {
       return res.redirect('/user/subscription?redirect-reason=double-buy')
+    }
+    if (
+      err instanceof Error &&
+      err.constructor.name === 'PaymentServiceResourceNotFoundError'
+    ) {
+      return res.redirect('/user/subscription/plans#ai-assist')
     }
     throw err
   }
@@ -562,6 +619,7 @@ async function previewAddonPurchase(req, res) {
   res.render('subscriptions/preview-change', {
     changePreview,
     purchaseReferrer,
+    redirectedPaymentErrorCode,
   })
 }
 
@@ -668,7 +726,7 @@ async function removeAddon(req, res, next) {
   logger.debug({ userId: user._id, addOnCode }, 'removing add-ons')
 
   try {
-    await SubscriptionHandler.promises.removeAddon(user._id, addOnCode)
+    await SubscriptionHandler.promises.removeAddon(user, addOnCode)
     res.sendStatus(200)
   } catch (err) {
     if (err instanceof AddOnNotPresentError) {
@@ -734,7 +792,19 @@ async function previewSubscription(req, res, next) {
   }
   // TODO: use PaymentService to fetch plan information
   const plan = await RecurlyClient.promises.getPlan(planCode)
-  const userId = SessionManager.getLoggedInUserId(req.session)
+  const user = SessionManager.getSessionUser(req.session)
+  const userId = user?._id
+
+  let trialDisabledReason
+  if (planCode.includes('_free_trial')) {
+    const trialEligibility = (
+      await Modules.promises.hooks.fire('userCanStartTrial', user)
+    )?.[0]
+    if (!trialEligibility.canStartTrial) {
+      trialDisabledReason = trialEligibility.disabledReason
+    }
+  }
+
   const subscriptionChange =
     await SubscriptionHandler.promises.previewSubscriptionChange(
       userId,
@@ -754,7 +824,11 @@ async function previewSubscription(req, res, next) {
     paymentMethod[0]
   )
 
-  res.render('subscriptions/preview-change', { changePreview })
+  res.render('subscriptions/preview-change', {
+    changePreview,
+    redirectedPaymentErrorCode: req.query.errorCode,
+    trialDisabledReason,
+  })
 }
 
 function cancelPendingSubscriptionChange(req, res, next) {

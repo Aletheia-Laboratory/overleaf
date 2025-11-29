@@ -71,40 +71,43 @@ describe('HistoryController', function () {
       default: {},
     }))
 
-    vi.doMock('../../../../app/src/infrastructure/mongodb.js', () => ({
+    vi.doMock('../../../../app/src/infrastructure/mongodb.mjs', () => ({
       default: { ObjectId },
     }))
 
     vi.doMock(
-      '../../../../app/src/Features/Authentication/SessionManager.js',
+      '../../../../app/src/Features/Authentication/SessionManager.mjs',
       () => ({
         default: ctx.SessionManager,
       })
     )
 
-    vi.doMock('../../../../app/src/Features/History/HistoryManager.js', () => ({
-      default: ctx.HistoryManager,
-    }))
+    vi.doMock(
+      '../../../../app/src/Features/History/HistoryManager.mjs',
+      () => ({
+        default: ctx.HistoryManager,
+      })
+    )
 
     vi.doMock(
-      '../../../../app/src/Features/Project/ProjectDetailsHandler.js',
+      '../../../../app/src/Features/Project/ProjectDetailsHandler.mjs',
       () => ({
         default: (ctx.ProjectDetailsHandler = {}),
       })
     )
 
     vi.doMock(
-      '../../../../app/src/Features/Project/ProjectEntityUpdateHandler.js',
+      '../../../../app/src/Features/Project/ProjectEntityUpdateHandler.mjs',
       () => ({
         default: ctx.ProjectEntityUpdateHandler,
       })
     )
 
-    vi.doMock('../../../../app/src/Features/User/UserGetter.js', () => ({
+    vi.doMock('../../../../app/src/Features/User/UserGetter.mjs', () => ({
       default: (ctx.UserGetter = {}),
     }))
 
-    vi.doMock('../../../../app/src/Features/Project/ProjectGetter.js', () => ({
+    vi.doMock('../../../../app/src/Features/Project/ProjectGetter.mjs', () => ({
       default: (ctx.ProjectGetter = {}),
     }))
 
@@ -115,7 +118,7 @@ describe('HistoryController', function () {
       })
     )
 
-    vi.doMock('../../../../app/src/infrastructure/Features.js', () => ({
+    vi.doMock('../../../../app/src/infrastructure/Features.mjs', () => ({
       default: (ctx.Features = sinon.stub().withArgs('saas').returns(true)),
     }))
 

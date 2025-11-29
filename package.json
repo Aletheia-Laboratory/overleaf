@@ -33,7 +33,8 @@
     "swagger-tools@0.10.4": {
       "path-to-regexp": "3.3.0",
       "body-parser": "1.20.3",
-      "multer": "2.0.2"
+      "multer": "2.0.2",
+      "validator": "13.15.20"
     },
     "request@2.88.2": {
       "tough-cookie": "5.1.2",
@@ -43,6 +44,8 @@
   "scripts": {
     "format": "prettier --list-different $PWD/'**/*.js'",
     "format:fix": "prettier --write $PWD/'**/*.js'",
+    "format:jenkins": "prettier --list-different $PWD/'**/Jenkinsfile'",
+    "format:jenkins:fix": "prettier --write $PWD/'**/Jenkinsfile'",
     "lint": "eslint --max-warnings 0 --format unix .",
     "lint:fix": "eslint --fix .",
     "postinstall": "patch-package"
@@ -50,6 +53,7 @@
   "workspaces": [
     "jobs/mirror-documentation",
     "libraries/*",
+    "server-ce/test",
     "services/analytics",
     "services/chat",
     "services/clsi",
@@ -73,6 +77,8 @@
     "services/third-party-references",
     "services/tpdsworker",
     "services/web",
-    "tools/saas-e2e"
+    "tools/dependency-management",
+    "tools/saas-e2e",
+    "tools/migrations"
   ]
 }

@@ -1,4 +1,4 @@
-import SessionManager from '../Authentication/SessionManager.js'
+import SessionManager from '../Authentication/SessionManager.mjs'
 import TutorialHandler from './TutorialHandler.mjs'
 import { expressify } from '@overleaf/promise-utils'
 
@@ -22,6 +22,10 @@ const VALID_KEYS = [
   'ide-redesign-beta-intro',
   'ide-redesign-labs-user-beta-promo',
   'rolling-compile-image-changed',
+  'groups-enterprise-banner',
+  'groups-enterprise-banner-repeat',
+  'new-editor-opt-in',
+  'new-editor-intro',
 ]
 
 async function completeTutorial(req, res, next) {

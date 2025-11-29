@@ -15,6 +15,7 @@ vi.mock('../../../../app/src/Features/Errors/Errors.js', () =>
 describe('TpdsUpdateHandler', function () {
   beforeEach(async function (ctx) {
     ctx.projectName = 'My recipes'
+    ctx.userId = new ObjectId()
     ctx.projects = {
       active1: { _id: new ObjectId(), name: ctx.projectName },
       active2: { _id: new ObjectId(), name: ctx.projectName },
@@ -28,8 +29,12 @@ describe('TpdsUpdateHandler', function () {
         name: ctx.projectName,
         archived: [ctx.userId],
       },
+      trashed: {
+        _id: new ObjectId(),
+        name: ctx.projectName,
+        trashed: [ctx.userId],
+      },
     }
-    ctx.userId = new ObjectId()
     ctx.source = 'dropbox'
     ctx.path = `/some/file`
     ctx.update = {}
@@ -45,9 +50,7 @@ describe('TpdsUpdateHandler', function () {
       },
     }
     ctx.FileTypeManager = {
-      promises: {
-        shouldIgnore: sinon.stub().resolves(false),
-      },
+      shouldIgnore: sinon.stub().returns(false),
     }
     ctx.Modules = {
       promises: {
@@ -75,9 +78,10 @@ describe('TpdsUpdateHandler', function () {
     ctx.ProjectGetter = {
       promises: {
         findUsersProjectsByName: sinon.stub(),
-        findAllUsersProjects: sinon
-          .stub()
-          .resolves({ owned: [ctx.projects.active1], readAndWrite: [] }),
+        findAllUsersProjects: sinon.stub().resolves({
+          owned: Object.values(ctx.projects),
+          readAndWrite: [],
+        }),
       },
     }
     ctx.ProjectHelper = {
@@ -88,6 +92,9 @@ describe('TpdsUpdateHandler', function () {
       .returns(true)
     ctx.ProjectHelper.isArchivedOrTrashed
       .withArgs(ctx.projects.archived2, ctx.userId)
+      .returns(true)
+    ctx.ProjectHelper.isArchivedOrTrashed
+      .withArgs(ctx.projects.trashed, ctx.userId)
       .returns(true)
     ctx.RootDocManager = {
       setRootDocAutomaticallyInBackground: sinon.stub(),
@@ -174,6 +181,24 @@ describe('TpdsUpdateHandler', function () {
         expectProjectNotCreated()
         expectUpdateProcessed()
       })
+
+      describe('with one matching archived project', function () {
+        beforeEach(function (ctx) {
+          ctx.projectId = ctx.projects.archived1._id.toString()
+        })
+        receiveUpdateById()
+        expectProjectNotCreated()
+        expectUpdateNotProcessed()
+      })
+
+      describe('with one matching trashed project', function () {
+        beforeEach(function (ctx) {
+          ctx.projectId = ctx.projects.trashed._id.toString()
+        })
+        receiveUpdateById()
+        expectProjectNotCreated()
+        expectUpdateNotProcessed()
+      })
     })
 
     describe('with no matching project', function () {
@@ -225,7 +250,7 @@ describe('TpdsUpdateHandler', function () {
     describe('update to a file that should be ignored', async function () {
       setupMatchingProjects(['active1'])
       beforeEach(function (ctx) {
-        ctx.FileTypeManager.promises.shouldIgnore.resolves(true)
+        ctx.FileTypeManager.shouldIgnore.returns(true)
       })
       receiveUpdate()
       expectProjectNotCreated()
@@ -269,6 +294,24 @@ describe('TpdsUpdateHandler', function () {
         })
         receiveFileDeleteById()
         expectDeleteProcessed()
+        expectProjectNotDeleted()
+      })
+
+      describe('with one matching archived project', function () {
+        beforeEach(function (ctx) {
+          ctx.projectId = ctx.projects.archived1._id.toString()
+        })
+        receiveFileDeleteById()
+        expectDeleteNotProcessed()
+        expectProjectNotDeleted()
+      })
+
+      describe('with one matching trashed project', function () {
+        beforeEach(function (ctx) {
+          ctx.projectId = ctx.projects.trashed._id.toString()
+        })
+        receiveFileDeleteById()
+        expectDeleteNotProcessed()
         expectProjectNotDeleted()
       })
     })
@@ -492,16 +535,13 @@ function receiveFileDelete() {
 
 function receiveFileDeleteById() {
   beforeEach(async function (ctx) {
-    await new Promise(resolve => {
-      ctx.TpdsUpdateHandler.deleteUpdate(
-        ctx.userId,
-        ctx.projectId,
-        '', // projectName
-        ctx.path,
-        ctx.source,
-        resolve
-      )
-    })
+    await ctx.TpdsUpdateHandler.promises.deleteUpdate(
+      ctx.userId,
+      ctx.projectId,
+      '', // projectName
+      ctx.path,
+      ctx.source
+    )
   })
 }
 

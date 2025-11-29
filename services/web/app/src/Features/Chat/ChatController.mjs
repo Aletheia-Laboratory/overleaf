@@ -1,10 +1,10 @@
 import { expressify } from '@overleaf/promise-utils'
-import Modules from '../../infrastructure/Modules.js'
-import ChatApiHandler from './ChatApiHandler.js'
-import EditorRealTimeController from '../Editor/EditorRealTimeController.js'
-import SessionManager from '../Authentication/SessionManager.js'
-import UserInfoManager from '../User/UserInfoManager.js'
-import UserInfoController from '../User/UserInfoController.js'
+import Modules from '../../infrastructure/Modules.mjs'
+import ChatApiHandler from './ChatApiHandler.mjs'
+import EditorRealTimeController from '../Editor/EditorRealTimeController.mjs'
+import SessionManager from '../Authentication/SessionManager.mjs'
+import UserInfoManager from '../User/UserInfoManager.mjs'
+import UserInfoController from '../User/UserInfoController.mjs'
 import ChatManager from './ChatManager.mjs'
 
 async function sendMessage(req, res) {
@@ -48,7 +48,48 @@ async function getMessages(req, res) {
   res.json(messages)
 }
 
+async function deleteMessage(req, res) {
+  const { project_id: projectId, message_id: messageId } = req.params
+  const userId = SessionManager.getLoggedInUserId(req.session)
+  if (userId == null) {
+    throw new Error('no logged-in user')
+  }
+
+  await ChatApiHandler.promises.deleteGlobalMessage(projectId, messageId)
+
+  EditorRealTimeController.emitToRoom(projectId, 'delete-global-message', {
+    messageId,
+    userId,
+  })
+  res.sendStatus(204)
+}
+
+async function editMessage(req, res, next) {
+  const { project_id: projectId, message_id: messageId } = req.params
+  const { content } = req.body
+  const userId = SessionManager.getLoggedInUserId(req.session)
+  if (userId == null) {
+    throw new Error('no logged-in user')
+  }
+
+  await ChatApiHandler.promises.editGlobalMessage(
+    projectId,
+    messageId,
+    userId,
+    content
+  )
+
+  EditorRealTimeController.emitToRoom(projectId, 'edit-global-message', {
+    messageId,
+    userId,
+    content,
+  })
+  res.sendStatus(204)
+}
+
 export default {
   sendMessage: expressify(sendMessage),
   getMessages: expressify(getMessages),
+  deleteMessage: expressify(deleteMessage),
+  editMessage: expressify(editMessage),
 }

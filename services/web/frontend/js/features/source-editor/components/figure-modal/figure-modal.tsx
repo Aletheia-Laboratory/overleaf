@@ -1,4 +1,5 @@
-import OLModal, {
+import {
+  OLModal,
   OLModalBody,
   OLModalFooter,
   OLModalHeader,
@@ -272,8 +273,13 @@ const FigureModalContent = () => {
     return null
   }
   return (
-    <OLModal onHide={hide} className="figure-modal" show>
-      <OLModalHeader closeButton>
+    <OLModal
+      onHide={hide}
+      className="figure-modal"
+      show
+      returnFocusOnDeactivate={false}
+    >
+      <OLModalHeader>
         <OLModalTitle>
           {helpShown
             ? t('help')

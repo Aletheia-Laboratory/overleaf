@@ -2,7 +2,7 @@ import { expect } from 'chai'
 import UserHelper from './helpers/User.mjs'
 import request from './helpers/request.js'
 import settings from '@overleaf/settings'
-import Features from '../../../app/src/infrastructure/Features.js'
+import Features from '../../../app/src/infrastructure/Features.mjs'
 import expectErrorResponse from './helpers/expectErrorResponse.mjs'
 import { promisify } from '@overleaf/promise-utils'
 
@@ -212,6 +212,7 @@ describe('Authorization', function () {
     this.other2 = new User()
     this.anon = new User()
     this.site_admin = new User({ email: 'admin@example.com' })
+    settings.adminRolesEnabled = false
     await Promise.all([
       this.owner.login(),
       this.other1.login(),

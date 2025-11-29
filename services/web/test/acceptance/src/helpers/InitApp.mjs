@@ -1,15 +1,15 @@
 import App from '../../../../app.mjs'
-import QueueWorkers from '../../../../app/src/infrastructure/QueueWorkers.js'
+import QueueWorkers from '../../../../app/src/infrastructure/QueueWorkers.mjs'
 import MongoHelper from './MongoHelper.mjs'
 import RedisHelper from './RedisHelper.mjs'
 import Settings from '@overleaf/settings'
 import MockReCAPTCHAApi from '../mocks/MockReCaptchaApi.mjs'
-import { gracefulShutdown } from '../../../../app/src/infrastructure/GracefulShutdown.js'
+import { gracefulShutdown } from '../../../../app/src/infrastructure/GracefulShutdown.mjs'
 import Server from '../../../../app/src/infrastructure/Server.mjs'
 import { injectRouteAfter } from './injectRoute.mjs'
-import SplitTestHandler from '../../../../app/src/Features/SplitTests/SplitTestHandler.js'
-import SplitTestSessionHandler from '../../../../app/src/Features/SplitTests/SplitTestSessionHandler.js'
-import Modules from '../../../../app/src/infrastructure/Modules.js'
+import SplitTestHandler from '../../../../app/src/Features/SplitTests/SplitTestHandler.mjs'
+import SplitTestSessionHandler from '../../../../app/src/Features/SplitTests/SplitTestSessionHandler.mjs'
+import Modules from '../../../../app/src/infrastructure/Modules.mjs'
 
 const app = Server.app
 

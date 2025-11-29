@@ -51,7 +51,7 @@ describe('DockerRunner', function () {
             },
           }),
         }),
-        './Metrics': {
+        '@overleaf/metrics': {
           Timer: (Timer = class Timer {
             done() {}
           }),
@@ -487,7 +487,7 @@ describe('DockerRunner', function () {
         return expect(options.HostConfig).to.deep.include({
           Binds: ['/some/host/dir/compiles/directory:/compile:rw'],
           LogConfig: { Type: 'none', Config: {} },
-          CapDrop: 'ALL',
+          CapDrop: ['ALL'],
           SecurityOpt: ['no-new-privileges'],
           newProperty: 'new-property',
         })
@@ -514,7 +514,7 @@ describe('DockerRunner', function () {
       sinon.spy(this.DockerRunner, 'startContainer')
       this.DockerRunner.waitForContainer = sinon
         .stub()
-        .callsArgWith(2, null, (this.exitCode = 42))
+        .callsArgWith(3, null, (this.exitCode = 42))
       return this.DockerRunner._runAndWaitForContainer(
         this.options,
         this.volumes,
@@ -675,6 +675,7 @@ describe('DockerRunner', function () {
         return this.DockerRunner.waitForContainer(
           this.containerId,
           this.timeout,
+          {},
           this.callback
         )
       })
@@ -691,6 +692,49 @@ describe('DockerRunner', function () {
       })
     })
 
+    describe('when the container is removed before waiting', function () {
+      const err = new Error('not found')
+      err.statusCode = 404
+      beforeEach(function () {
+        this.container.wait = sinon.stub().yields(err)
+      })
+
+      describe('AutoRemove not set', function () {
+        beforeEach(function () {
+          this.DockerRunner.waitForContainer(
+            this.containerId,
+            this.timeout,
+            { HostConfig: {} },
+            this.callback
+          )
+        })
+        it('should wait for the container', function () {
+          this.getContainer.calledWith(this.containerId).should.equal(true)
+          this.container.wait.called.should.equal(true)
+        })
+        it('should call the callback with the error', function () {
+          this.callback.calledWith(err).should.equal(true)
+        })
+      })
+      describe('AutoRemove=true', function () {
+        beforeEach(function () {
+          this.DockerRunner.waitForContainer(
+            this.containerId,
+            this.timeout,
+            { HostConfig: { AutoRemove: true } },
+            this.callback
+          )
+        })
+        it('should wait for the container', function () {
+          this.getContainer.calledWith(this.containerId).should.equal(true)
+          this.container.wait.called.should.equal(true)
+        })
+        it('should call the callback with exit code 0', function () {
+          this.callback.calledWith(null, 0).should.equal(true)
+        })
+      })
+    })
+
     return describe('when the container does not return before the timeout', function () {
       beforeEach(function (done) {
         this.container.wait = function (callback) {
@@ -703,6 +747,7 @@ describe('DockerRunner', function () {
         return this.DockerRunner.waitForContainer(
           this.containerId,
           this.timeout,
+          {},
           (...args) => {
             this.callback(...Array.from(args || []))
             return done()

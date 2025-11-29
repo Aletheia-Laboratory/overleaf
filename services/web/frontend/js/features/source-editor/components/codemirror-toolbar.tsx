@@ -1,4 +1,11 @@
-import { memo, useCallback, useEffect, useRef, useState } from 'react'
+import {
+  ElementType,
+  memo,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from 'react'
 import { createPortal } from 'react-dom'
 import {
   useCodeMirrorStateContext,
@@ -27,6 +34,15 @@ import Breadcrumbs from '@/features/ide-redesign/components/breadcrumbs'
 import classNames from 'classnames'
 import { useUserSettingsContext } from '@/shared/context/user-settings-context'
 import { useFeatureFlag } from '@/shared/context/split-test-context'
+import importOverleafModules from '../../../../macros/import-overleaf-module.macro'
+
+const sourceEditorToolbarComponents = importOverleafModules(
+  'sourceEditorToolbarComponents'
+) as { import: { default: ElementType }; path: string }[]
+
+const sourceEditorToolbarEndButtons = importOverleafModules(
+  'sourceEditorToolbarEndButtons'
+) as { import: { default: ElementType }; path: string }[]
 
 export const CodeMirrorToolbar = () => {
   const view = useCodeMirrorViewContext()
@@ -192,12 +208,22 @@ const Toolbar = memo(function Toolbar() {
             className="ol-cm-toolbar-button-group ol-cm-toolbar-end"
             ref={handleButtons}
           >
+            {sourceEditorToolbarEndButtons.map(
+              ({ import: { default: Component }, path }) => (
+                <Component key={path} />
+              )
+            )}
             <ToggleSearchButton state={state} />
             <SwitchToPDFButton />
             <DetacherSynctexControl />
             <DetachCompileButtonWrapper />
           </div>
         </div>
+        {sourceEditorToolbarComponents.map(
+          ({ import: { default: Component }, path }) => (
+            <Component key={path} />
+          )
+        )}
         {newEditor && breadcrumbs && <Breadcrumbs />}
       </div>
     </>

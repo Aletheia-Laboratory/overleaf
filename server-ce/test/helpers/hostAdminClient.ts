@@ -122,13 +122,15 @@ export async function setMongoFeatureCompatibilityVersion(
 }
 
 export async function purgeFilestoreData() {
-  await fetchJSON(`${hostAdminURL}/data/user_files`, {
+  const { stdout } = await fetchJSON(`${hostAdminURL}/data/user_files`, {
     method: 'DELETE',
   })
+  if (!stdout.trim()) return []
+  return stdout.trim().split('\n')
 }
 
 async function sleep(ms: number) {
-  return new Promise(resolve => {
+  return await new Promise(resolve => {
     setTimeout(resolve, ms)
   })
 }

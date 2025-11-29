@@ -1,8 +1,8 @@
 import AuthorizationMiddleware from '../Authorization/AuthorizationMiddleware.mjs'
-import AuthenticationController from '../Authentication/AuthenticationController.js'
+import AuthenticationController from '../Authentication/AuthenticationController.mjs'
 import ProjectUploadController from './ProjectUploadController.mjs'
-import { RateLimiter } from '../../infrastructure/RateLimiter.js'
-import RateLimiterMiddleware from '../Security/RateLimiterMiddleware.js'
+import { RateLimiter } from '../../infrastructure/RateLimiter.mjs'
+import RateLimiterMiddleware from '../Security/RateLimiterMiddleware.mjs'
 import Settings from '@overleaf/settings'
 
 const rateLimiters = {

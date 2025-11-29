@@ -2,10 +2,12 @@ DOCKER_COMPOSE_FLAGS ?= -f docker-compose.yml
 
 BUILD_NUMBER ?= local
 export BRANCH_NAME ?= $(shell git rev-parse --abbrev-ref HEAD)
+BRANCH_NAME_TAG_SAFE = $(shell echo $(BRANCH_NAME) | sed 's/\//\-\-/')
 export COMMIT_SHA ?= $(shell git rev-parse HEAD)
 PROJECT_NAME = web
 BUILD_DIR_NAME = $(shell pwd | xargs basename | tr -cd '[a-zA-Z0-9_.\-]')
 PWD = $(shell pwd)
+export MONOREPO ?= $(shell cd ../../ && pwd)
 
 export OVERLEAF_CONFIG ?= /overleaf/services/web/test/acceptance/config/settings.test.saas.js
 export BASE_CONFIG ?= ${OVERLEAF_CONFIG}
@@ -15,7 +17,7 @@ CFG_SERVER_CE=/overleaf/services/web/test/acceptance/config/settings.test.server
 CFG_SERVER_PRO=/overleaf/services/web/test/acceptance/config/settings.test.server-pro.js
 
 DOCKER_COMPOSE := BUILD_NUMBER=$(BUILD_NUMBER) \
-	BRANCH_NAME=$(BRANCH_NAME) \
+	BRANCH_NAME=$(BRANCH_NAME_TAG_SAFE) \
 	PROJECT_NAME=$(PROJECT_NAME) \
 	MOCHA_GREP=${MOCHA_GREP} \
 	docker compose ${DOCKER_COMPOSE_FLAGS}
@@ -60,6 +62,7 @@ SHARD_PROJECT_NAMES = \
 
 CLEAN_SHARDS=$(addprefix clean/,$(SHARD_PROJECT_NAMES))
 clean: $(CLEAN_SHARDS)
+	-docker run --rm --volume /dev/shm:/dev/shm --user root $(IMAGE_CI) rm -rf /dev/shm/overleaf
 	-docker rmi --force $(IMAGE_CI) $(IMAGE_CI)-dev $(IMAGE_CI)-pug $(IMAGE_CI)-webpack $(IMAGE_REPO_FINAL)
 	-docker compose down --remove-orphans --rmi local --timeout 0 --volumes
 	-git clean -dfX data/
@@ -98,13 +101,25 @@ test_unit_app: export COMPOSE_PROJECT_NAME=unit_test_$(BUILD_DIR_NAME)
 test_unit_app: mongo_migrations_for_tests
 	$(DOCKER_COMPOSE) run --name unit_test_$(BUILD_DIR_NAME) --rm test_unit
 
+test_unit_mocha: export MOCHA_ROOT_SUITE_NAME = Mocha unit tests
 test_unit_mocha: export COMPOSE_PROJECT_NAME=unit_test_mocha_$(BUILD_DIR_NAME)
 test_unit_mocha: mongo_migrations_for_tests
 	$(DOCKER_COMPOSE) run --rm test_unit npm run test:unit:mocha
 
-test_unit_esm: export COMPOSE_PROJECT_NAME=unit_test_esm_$(BUILD_DIR_NAME)
+test_unit_esm: export VITEST_ROOT_SUITE_NAME = ESM unit tests - parallel
+test_unit_esm: export COMPOSE_PROJECT_NAME=unit_test_esm_parallel_$(BUILD_DIR_NAME)
 test_unit_esm: mongo_migrations_for_tests
 	$(DOCKER_COMPOSE) run --rm test_unit npm run test:unit:esm
+
+test_unit_esm_parallel: export VITEST_ROOT_SUITE_NAME = ESM unit tests - parallel
+test_unit_esm_parallel: export COMPOSE_PROJECT_NAME=unit_test_esm_parallel_$(BUILD_DIR_NAME)
+test_unit_esm_parallel: mongo_migrations_for_tests
+	$(DOCKER_COMPOSE) run --rm test_unit npm run test:unit:esm:parallel
+
+test_unit_esm_sequential: export VITEST_ROOT_SUITE_NAME = ESM unit tests - sequential
+test_unit_esm_sequential: export COMPOSE_PROJECT_NAME=unit_test_esm_sequential_$(BUILD_DIR_NAME)
+test_unit_esm_sequential: mongo_migrations_for_tests
+	$(DOCKER_COMPOSE) run --rm test_unit npm run test:unit:esm:sequential
 
 test_unit_esm_watch: export COMPOSE_PROJECT_NAME=unit_test_esm_watch_$(BUILD_DIR_NAME)
 test_unit_esm_watch: mongo_migrations_for_tests
@@ -142,12 +157,13 @@ test_unit_module: mongo_migrations_for_tests
 	$(MAKE) modules/$(MODULE_NAME)/test_unit
 
 mongo_migrations_for_tests:
-	$(DOCKER_COMPOSE) run --rm test_unit npm run migrations -- migrate -t saas || { $(DOCKER_COMPOSE) logs mongo; exit 42; }
+	$(DOCKER_COMPOSE) run --rm --workdir /overleaf/tools/migrations test_unit npm run migrations -- migrate -t saas
 
 #
 # Frontend tests
 #
 
+test_frontend: export MOCHA_ROOT_SUITE_NAME = JSDOM frontend tests
 test_frontend:
 	COMPOSE_PROJECT_NAME=frontend_test_$(BUILD_DIR_NAME) $(DOCKER_COMPOSE) run --rm test_frontend
 	COMPOSE_PROJECT_NAME=frontend_test_$(BUILD_DIR_NAME) $(DOCKER_COMPOSE) down -v -t 0
@@ -169,29 +185,35 @@ TEST_FRONTEND_CT_VARIANTS = \
 # Writefull tests
 #
 
+test_writefull: export MOCHA_ROOT_SUITE_NAME = Writefull tests
 test_writefull:
 	COMPOSE_PROJECT_NAME=writefull_test_$(BUILD_DIR_NAME) $(DOCKER_COMPOSE) run --rm test_writefull
 	COMPOSE_PROJECT_NAME=writefull_test_$(BUILD_DIR_NAME) $(DOCKER_COMPOSE) down -v -t 0
 
 # Note: The below cypress targets are for CI only
 build_test_frontend_ct:
-	docker run --rm --volume /dev/shm:/dev/shm --user root $(IMAGE_CI) bash -ec 'tar -cC / overleaf | tar -xC /dev/shm'
+	docker run --rm --volume /dev/shm:/dev/shm --user root $(IMAGE_CI) bash -ec 'for path in /overleaf/services/web/cypress/results /overleaf/services/web/node_modules/.cache; do mkdir -p $$path; chown -R node:node $$path; done && tar -cC / overleaf | tar -xC /dev/shm'
 
+test_frontend_ct_core_other: export CYPRESS_DOWNLOADS=./cypress/downloads/core
 test_frontend_ct_core_other: export CYPRESS_RESULTS=./cypress/results/core
 test_frontend_ct_core_other: export CYPRESS_SPEC_PATTERN=./test/frontend/**/*.spec.{js,jsx,ts,tsx}
 test_frontend_ct_core_other: export CYPRESS_EXCLUDE_SPEC_PATTERN=./test/frontend/features/**/*.spec.{js,jsx,ts,tsx}
 
+test_frontend_ct_core_features: export CYPRESS_DOWNLOADS=./cypress/downloads/core
 test_frontend_ct_core_features: export CYPRESS_RESULTS=./cypress/results/core
 test_frontend_ct_core_features: export CYPRESS_SPEC_PATTERN=./test/frontend/features/**/*.spec.{js,jsx,ts,tsx}
 test_frontend_ct_core_features: export CYPRESS_EXCLUDE_SPEC_PATTERN=./test/frontend/features/source-editor/**/*.spec.{js,jsx,ts,tsx}
 
+test_frontend_ct_modules: export CYPRESS_DOWNLOADS=./cypress/downloads/modules
 test_frontend_ct_modules: export CYPRESS_RESULTS=./cypress/results/modules
 test_frontend_ct_modules: export CYPRESS_SPEC_PATTERN=./modules/**/test/frontend/**/*.spec.{js,jsx,ts,tsx}
 
+test_frontend_ct_editor_other: export CYPRESS_DOWNLOADS=./cypress/downloads/editor_other
 test_frontend_ct_editor_other: export CYPRESS_RESULTS=./cypress/results/editor_other
 test_frontend_ct_editor_other: export CYPRESS_SPEC_PATTERN=./test/frontend/features/source-editor/**/*.spec.{js,jsx,ts,tsx}
 test_frontend_ct_editor_other: export CYPRESS_EXCLUDE_SPEC_PATTERN=./test/frontend/features/source-editor/components/codemirror-editor-visual*.spec.{js,jsx,ts,tsx}
 
+test_frontend_ct_editor_visual: export CYPRESS_DOWNLOADS=./cypress/downloads/editor_visual
 test_frontend_ct_editor_visual: export CYPRESS_RESULTS=./cypress/results/editor_visual
 test_frontend_ct_editor_visual: export CYPRESS_SPEC_PATTERN=./test/frontend/features/source-editor/components/codemirror-editor-visual*.spec.{js,jsx,ts,tsx}
 
@@ -214,15 +236,18 @@ TEST_ACCEPTANCE_APP :=  \
 	test_acceptance_app_server_pro \
 
 test_acceptance_app: $(TEST_ACCEPTANCE_APP)
+test_acceptance_app_saas: export MOCHA_ROOT_SUITE_NAME = SaaS app acceptance tests
 test_acceptance_app_saas: export COMPOSE_PROJECT_NAME=acceptance_test_saas_$(BUILD_DIR_NAME)
 test_acceptance_app_saas: export OVERLEAF_CONFIG=$(CFG_SAAS)
+test_acceptance_app_server_ce: export MOCHA_ROOT_SUITE_NAME = Server CE app acceptance tests
 test_acceptance_app_server_ce: export COMPOSE_PROJECT_NAME=acceptance_test_server_ce_$(BUILD_DIR_NAME)
 test_acceptance_app_server_ce: export OVERLEAF_CONFIG=$(CFG_SERVER_CE)
+test_acceptance_app_server_pro: export MOCHA_ROOT_SUITE_NAME = Server Pro app acceptance tests
 test_acceptance_app_server_pro: export COMPOSE_PROJECT_NAME=acceptance_test_server_pro_$(BUILD_DIR_NAME)
 test_acceptance_app_server_pro: export OVERLEAF_CONFIG=$(CFG_SERVER_PRO)
 
 $(TEST_ACCEPTANCE_APP):
-	$(DOCKER_COMPOSE) run --rm test_acceptance || { $(DOCKER_COMPOSE) logs mongo; exit 42; }
+	$(DOCKER_COMPOSE) run --rm test_acceptance
 	$(DOCKER_COMPOSE) down -v -t 0
 
 # We are using _make magic_ for turning these file-targets into calls to
@@ -349,14 +374,17 @@ $(TEST_ACCEPTANCE_MODULES_MERGED_INNER_SPLIT):
 	)
 
 # See docs for test_acceptance_server_ce how this works.
+test_acceptance_modules_merged_saas: export MOCHA_ROOT_SUITE_NAME = SaaS modules acceptance tests
 test_acceptance_modules_merged_saas: export COMPOSE_PROJECT_NAME = \
 	acceptance_test_modules_merged_saas_$(BUILD_DIR_NAME)
 test_acceptance_modules_merged_saas: export BASE_CONFIG = $(CFG_SAAS)
 
+test_acceptance_modules_merged_server_ce: export MOCHA_ROOT_SUITE_NAME = Server CE modules acceptance tests
 test_acceptance_modules_merged_server_ce: export COMPOSE_PROJECT_NAME = \
 	acceptance_test_modules_merged_server_ce_$(BUILD_DIR_NAME)
 test_acceptance_modules_merged_server_ce: export BASE_CONFIG = $(CFG_SERVER_CE)
 
+test_acceptance_modules_merged_server_pro: export MOCHA_ROOT_SUITE_NAME = Server Pro modules acceptance tests
 test_acceptance_modules_merged_server_pro: export COMPOSE_PROJECT_NAME = \
 	acceptance_test_modules_merged_server_pro_$(BUILD_DIR_NAME)
 test_acceptance_modules_merged_server_pro: export BASE_CONFIG = $(CFG_SERVER_PRO)
@@ -369,7 +397,7 @@ TEST_ACCEPTANCE_MODULES_MERGED_VARIANTS = \
 	test_acceptance_modules_merged_server_pro \
 
 $(TEST_ACCEPTANCE_MODULES_MERGED_VARIANTS):
-	$(DOCKER_COMPOSE) run --rm test_acceptance make test_acceptance_modules_merged_inner || { $(DOCKER_COMPOSE) logs mongo; exit 42; }
+	$(DOCKER_COMPOSE) run --rm test_acceptance make test_acceptance_modules_merged_inner
 	$(DOCKER_COMPOSE) down -v -t 0
 
 # outer loop for running saas tests in parallel
@@ -388,9 +416,10 @@ test_acceptance_modules_merged_saas_3: export COMPOSE_PROJECT_NAME = \
 test_acceptance_modules_merged_saas_4: export COMPOSE_PROJECT_NAME = \
 	acceptance_test_modules_merged_saas_4_$(BUILD_DIR_NAME)
 $(TEST_ACCEPTANCE_MODULES_MERGED_SPLIT_SAAS): export BASE_CONFIG = $(CFG_SAAS)
+$(TEST_ACCEPTANCE_MODULES_MERGED_SPLIT_SAAS): export MOCHA_ROOT_SUITE_NAME = SaaS modules acceptance tests
 
 $(TEST_ACCEPTANCE_MODULES_MERGED_SPLIT_SAAS): test_acceptance_modules_merged_saas_%:
-	$(DOCKER_COMPOSE) run --rm test_acceptance make test_acceptance_modules_merged_inner_$* || { $(DOCKER_COMPOSE) logs mongo; exit 42; }
+	$(DOCKER_COMPOSE) run --rm test_acceptance make test_acceptance_modules_merged_inner_$*
 	$(DOCKER_COMPOSE) down -v -t 0
 
 test_acceptance_modules: $(TEST_ACCEPTANCE_MODULES_MERGED_VARIANTS)
@@ -408,7 +437,7 @@ ci:
 #
 ORG_PATH = /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 RUN_LINT_FORMAT ?= \
-	docker run --rm ci/$(PROJECT_NAME):$(BRANCH_NAME)-$(BUILD_NUMBER)
+	docker run --rm --env BRANCH_NAME --env CI --env COMMIT_SHA --env MONOREPO --volume ${PWD}/data/reports:/overleaf/services/web/data/reports ${IMAGE_CI}
 
 NODE_MODULES_PATH := ${PATH}:${PWD}/node_modules/.bin:/overleaf/services/web/node_modules/.bin
 WITH_NODE_MODULES_PATH = \
@@ -425,11 +454,21 @@ $(WITH_NODE_MODULES_PATH): export PATH=$(NODE_MODULES_PATH)
 
 lint: lint_eslint
 lint_eslint:
+ifeq ($(CI),true)
+	-npm run lint -- --format json --output-file data/reports/eslint.json
+	sed -i 's_"filePath":"/overleaf_"filePath":"$(MONOREPO)_g' data/reports/eslint.json
+else
 	npm run lint
+endif
 
 lint: lint_stylelint
 lint_stylelint:
+ifeq ($(CI),true)
+	-npm run lint:styles -- --formatter json --output-file data/reports/stylelint.json
+	sed -i 's_"source":"/overleaf_"source":"$(MONOREPO)_g' data/reports/stylelint.json
+else
 	npm run lint:styles
+endif
 
 lint: lint_pug
 lint_pug:
@@ -521,20 +560,42 @@ shellcheck_fix:
 # Build & publish
 #
 
-IMAGE_CI ?= ci/$(PROJECT_NAME):$(BRANCH_NAME)-$(BUILD_NUMBER)
+IMAGE_CI ?= ci/$(PROJECT_NAME):$(BRANCH_NAME_TAG_SAFE)-$(BUILD_NUMBER)
 IMAGE_REPO ?= us-east1-docker.pkg.dev/overleaf-ops/ol-docker/$(PROJECT_NAME)
-IMAGE_REPO_BRANCH ?= $(IMAGE_REPO):$(BRANCH_NAME)
-IMAGE_REPO_MAIN ?= $(IMAGE_REPO):main
-IMAGE_REPO_FINAL ?= $(IMAGE_REPO_BRANCH)-$(BUILD_NUMBER)
+IMAGE_REPO_FINAL ?= $(IMAGE_REPO):$(BRANCH_NAME_TAG_SAFE)-$(BUILD_NUMBER)
+# A shared scratch tag that is used by all the pipelines for pushing the layers of the production image ASAP from a parallel step.
+# We do not want to make the image available before all the tests have passed.
+# Using a single tag avoids generating cruft in our docker repository / AR.
+IMAGE_SCRATCH ?= $(IMAGE_REPO):do-not-use-this-tag-for-deploys--it-is-used-for-early-pushes-in-ci
+IMAGE_CACHE ?= $(IMAGE_REPO):cache-$(shell cat \
+	$(MONOREPO)/package.json \
+	$(MONOREPO)/package-lock.json \
+	$(MONOREPO)/libraries/access-token-encryptor/package.json \
+  $(MONOREPO)/libraries/eslint-plugin/package.json \
+  $(MONOREPO)/libraries/fetch-utils/package.json \
+  $(MONOREPO)/libraries/logger/package.json \
+  $(MONOREPO)/libraries/metrics/package.json \
+  $(MONOREPO)/libraries/mongo-utils/package.json \
+  $(MONOREPO)/libraries/o-error/package.json \
+  $(MONOREPO)/libraries/object-persistor/package.json \
+  $(MONOREPO)/libraries/overleaf-editor-core/package.json \
+  $(MONOREPO)/libraries/promise-utils/package.json \
+  $(MONOREPO)/libraries/ranges-tracker/package.json \
+  $(MONOREPO)/libraries/redis-wrapper/package.json \
+  $(MONOREPO)/libraries/settings/package.json \
+  $(MONOREPO)/libraries/stream-utils/package.json \
+  $(MONOREPO)/libraries/validation-tools/package.json \
+	$(MONOREPO)/services/web/package.json \
+	$(MONOREPO)/patches/* \
+| sha256sum | cut -d '-' -f1)
 
 export SENTRY_RELEASE ?= ${COMMIT_SHA}
 
 build_deps:
 	docker build --pull \
 		--build-arg BUILDKIT_INLINE_CACHE=1 \
-		--cache-from $(IMAGE_REPO_BRANCH)-deps \
-		--cache-from $(IMAGE_REPO_MAIN)-deps \
-		--tag $(IMAGE_REPO_BRANCH)-deps \
+		--cache-from $(IMAGE_CACHE) \
+		--tag $(IMAGE_CACHE) \
 		--target deps \
 		--file Dockerfile \
 		../..
@@ -555,8 +616,6 @@ build_webpack:
 build_webpack_once:
 	docker build \
 		--build-arg SENTRY_RELEASE \
-		--cache-from $(IMAGE_CI)-dev \
-		--cache-from $(IMAGE_CI)-webpack \
 		--tag $(IMAGE_CI)-webpack \
 		--target webpack \
 		--file Dockerfile \
@@ -565,7 +624,6 @@ build_webpack_once:
 build_pug:
 	docker build \
 		--build-arg SENTRY_RELEASE \
-		--cache-from $(IMAGE_CI)-dev \
 		--tag $(IMAGE_CI)-pug \
 		--target pug \
 		--file Dockerfile \
@@ -574,10 +632,8 @@ build_pug:
 build:
 	docker build \
 		--build-arg SENTRY_RELEASE \
-		--cache-from $(IMAGE_CI)-webpack \
-		--cache-from $(IMAGE_CI)-pug \
-		--cache-from $(IMAGE_REPO_FINAL) \
 		--tag $(IMAGE_REPO_FINAL) \
+		--tag $(IMAGE_SCRATCH) \
 		--target app \
 		--file Dockerfile \
 		../..
@@ -585,11 +641,16 @@ build:
 publish:
 	docker push $(IMAGE_REPO_FINAL)
 
+push_branch:
+	docker push $(IMAGE_CACHE)
+
+push_scratch:
+	docker push $(IMAGE_SCRATCH)
+
 SENTRY_IMAGE=getsentry/sentry-cli:2.16.1
 sentry_prefetch:
 	docker pull $(SENTRY_IMAGE)
 
-sentry_upload: MONOREPO=$(shell cd ../../ && pwd)
 sentry_upload:
 	docker run --rm \
 		--volume $(MONOREPO):$(MONOREPO) --workdir $(PWD) \

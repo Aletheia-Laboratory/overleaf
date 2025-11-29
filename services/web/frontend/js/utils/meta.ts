@@ -64,7 +64,6 @@ import type { ScriptLogType } from '../../../modules/admin-panel/frontend/js/fea
 import { ActiveExperiment } from './labs-utils'
 import { Subscription as AdminSubscription } from '../../../types/admin/subscription'
 import { AdminCapability } from '../../../types/admin-capabilities'
-import { GroupAuditLog } from '../../../modules/group-audit-log/frontend/js/components/logs'
 import { AlgoliaConfig } from '../../../modules/algolia-search/frontend/js/types'
 import { WritefullPublicEnv } from '@wf/domain/writefull-public-env'
 
@@ -83,10 +82,11 @@ export interface Meta {
   'ol-anonymous': boolean
   'ol-baseAssetPath': string
   'ol-brandVariation': Record<string, any>
+  'ol-canUseAddSeatsFeature': boolean
+  'ol-canUseClsiCache': boolean
+  'ol-canUseFlexibleLicensing': boolean
 
   // dynamic keys based on permissions
-  'ol-canUseAddSeatsFeature': boolean
-  'ol-canUseFlexibleLicensing': boolean
   'ol-cannot-add-secondary-email': boolean
   'ol-cannot-change-password': boolean
   'ol-cannot-delete-own-account': boolean
@@ -97,12 +97,14 @@ export interface Meta {
   'ol-cannot-reactivate-subscription': boolean
   'ol-cannot-use-ai': boolean
   'ol-capabilities': Array<'dropbox' | 'chat' | 'use-ai' | 'link-sharing'>
+
   'ol-compileSettings': {
     compileTimeout: number
   }
   'ol-compilesUserContentDomain': string
   'ol-countryCode': PricingFormState['country']
   'ol-couponCode': PricingFormState['coupon']
+  'ol-createNewUserViaDomainCapture': boolean
   'ol-createdAt': Date
   'ol-csrfToken': string
   'ol-currentInstitutionsWithLicence': Institution[]
@@ -115,7 +117,7 @@ export interface Meta {
   'ol-domainCaptureEnabled': boolean | undefined
   'ol-domainCaptureTestURL': string | undefined
   'ol-dropbox': { error: boolean; registered: boolean }
-  'ol-editorThemes': string[]
+  'ol-editorThemes': { name: string; dark: boolean }[]
   'ol-email': string
   'ol-emailAddressLimit': number
   'ol-error': { name: string } | undefined
@@ -165,6 +167,7 @@ export interface Meta {
   'ol-i18n': { currentLangCode: string }
   'ol-imageNames': ImageName[]
   'ol-inactiveTutorials': string[]
+  'ol-institutionEmail': string | undefined
   'ol-institutionEmailNonCanonical': string | undefined
   'ol-institutionLinked': InstitutionLink | undefined
   'ol-inviteToken': string
@@ -185,10 +188,9 @@ export interface Meta {
   'ol-labsExperiments': ActiveExperiment[] | undefined
   'ol-languages': SpellCheckLanguage[]
   'ol-learnedWords': string[]
-  'ol-legacyEditorThemes': string[]
+  'ol-legacyEditorThemes': { name: string; dark: boolean }[]
   'ol-licenseQuantity'?: number
   'ol-loadingText': string
-  'ol-logsForRendering': GroupAuditLog[]
   'ol-managedGroupSubscriptions': ManagedGroupSubscription[]
   'ol-managedInstitutions': ManagedInstitution[]
   'ol-managedPublishers': Publisher[]
@@ -226,7 +228,6 @@ export interface Meta {
   'ol-project': any // TODO
   'ol-projectEntityCounts': { files: number; docs: number }
   'ol-projectName': string
-  'ol-projectOwnerHasPremiumOnPageLoad': boolean
   'ol-projectSyncSuccessMessage': string
   'ol-projectTags': Tag[]
   'ol-project_id': string
@@ -255,7 +256,6 @@ export interface Meta {
   'ol-shouldAllowEditingDetails': boolean
   'ol-shouldLoadHotjar': boolean
   'ol-showAiErrorAssistant': boolean
-  'ol-showBrlGeoBanner': boolean
   'ol-showCouponField': boolean
   'ol-showGroupDiscount': boolean
   'ol-showGroupsAndEnterpriseBanner': boolean
@@ -272,14 +272,22 @@ export interface Meta {
   'ol-ssoDisabled': boolean
   'ol-ssoErrorMessage': string
   'ol-ssoInitPath': string
-  'ol-stripeAccountId': string
-  'ol-stripePublicKeyUK': string
-  'ol-stripePublicKeyUS': string
-  'ol-stripeSubscriptionData': {
+  'ol-standardPlanPricing': {
+    monthly?: string
+    annual?: string
+    monthlyTimesTwelve?: string
+  }
+  'ol-stripeCustomerData': Array<{
     customerId: string
+    subscriptionId: string
     subscriptionState: string | null
     paymentProviderService: StripePaymentProviderService | null
-  }
+    managementUrl: string
+    segment?: string | null
+    error?: string
+  }>
+  'ol-stripePublicKeyUK': string
+  'ol-stripePublicKeyUS': string
   'ol-subscription': any // TODO: mixed types, split into two fields
   'ol-subscriptionChangePreview': SubscriptionChangePreview
   'ol-subscriptionCreationPreview': SubscriptionCreationPreview
@@ -289,6 +297,7 @@ export interface Meta {
     domainCapture?: boolean
   }
   'ol-subscriptionId': string
+  'ol-subscriptionPaymentErrorCode': string | null
   'ol-suggestedLanguage': SuggestedLanguage | undefined
   'ol-survey': Survey | undefined
   'ol-symbolPaletteAvailable': boolean
@@ -300,6 +309,7 @@ export interface Meta {
   'ol-translationLoadErrorMessage': string
   'ol-translationMaintenance': string
   'ol-translationUnableToJoin': string
+  'ol-trialDisabledReason': string | undefined
   'ol-usGovBannerVariant': USGovBannerVariant
   'ol-useShareJsHash': boolean
   'ol-user': User

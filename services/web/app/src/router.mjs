@@ -1,6 +1,6 @@
 import AdminController from './Features/ServerAdmin/AdminController.mjs'
 import ErrorController from './Features/Errors/ErrorController.mjs'
-import Features from './infrastructure/Features.js'
+import Features from './infrastructure/Features.mjs'
 import ProjectController from './Features/Project/ProjectController.mjs'
 import ProjectApiController from './Features/Project/ProjectApiController.mjs'
 import ProjectListController from './Features/Project/ProjectListController.mjs'
@@ -12,15 +12,15 @@ import SubscriptionRouter from './Features/Subscription/SubscriptionRouter.mjs'
 import UploadsRouter from './Features/Uploads/UploadsRouter.mjs'
 import metrics from '@overleaf/metrics'
 import ReferalController from './Features/Referal/ReferalController.mjs'
-import AuthenticationController from './Features/Authentication/AuthenticationController.js'
+import AuthenticationController from './Features/Authentication/AuthenticationController.mjs'
 import PermissionsController from './Features/Authorization/PermissionsController.mjs'
-import SessionManager from './Features/Authentication/SessionManager.js'
+import SessionManager from './Features/Authentication/SessionManager.mjs'
 import TagsController from './Features/Tags/TagsController.mjs'
 import NotificationsController from './Features/Notifications/NotificationsController.mjs'
 import CollaboratorsRouter from './Features/Collaborators/CollaboratorsRouter.mjs'
-import UserInfoController from './Features/User/UserInfoController.js'
+import UserInfoController from './Features/User/UserInfoController.mjs'
 import UserController from './Features/User/UserController.mjs'
-import UserEmailsController from './Features/User/UserEmailsController.js'
+import UserEmailsController from './Features/User/UserEmailsController.mjs'
 import UserPagesController from './Features/User/UserPagesController.mjs'
 import TutorialController from './Features/Tutorial/TutorialController.mjs'
 import DocumentController from './Features/Documents/DocumentController.mjs'
@@ -35,13 +35,13 @@ import ExportsController from './Features/Exports/ExportsController.mjs'
 import PasswordResetRouter from './Features/PasswordReset/PasswordResetRouter.mjs'
 import StaticPagesRouter from './Features/StaticPages/StaticPagesRouter.mjs'
 import ChatController from './Features/Chat/ChatController.mjs'
-import Modules from './infrastructure/Modules.js'
+import Modules from './infrastructure/Modules.mjs'
 import {
   RateLimiter,
   openProjectRateLimiter,
   overleafLoginRateLimiter,
-} from './infrastructure/RateLimiter.js'
-import RateLimiterMiddleware from './Features/Security/RateLimiterMiddleware.js'
+} from './infrastructure/RateLimiter.mjs'
+import RateLimiterMiddleware from './Features/Security/RateLimiterMiddleware.mjs'
 import InactiveProjectController from './Features/InactiveData/InactiveProjectController.mjs'
 import ContactRouter from './Features/Contacts/ContactRouter.mjs'
 import ReferencesController from './Features/References/ReferencesController.mjs'
@@ -55,16 +55,16 @@ import LinkedFilesRouter from './Features/LinkedFiles/LinkedFilesRouter.mjs'
 import TemplatesRouter from './Features/Templates/TemplatesRouter.mjs'
 import UserMembershipRouter from './Features/UserMembership/UserMembershipRouter.mjs'
 import SystemMessageController from './Features/SystemMessages/SystemMessageController.mjs'
-import AnalyticsRegistrationSourceMiddleware from './Features/Analytics/AnalyticsRegistrationSourceMiddleware.js'
+import AnalyticsRegistrationSourceMiddleware from './Features/Analytics/AnalyticsRegistrationSourceMiddleware.mjs'
 import AnalyticsUTMTrackingMiddleware from './Features/Analytics/AnalyticsUTMTrackingMiddleware.mjs'
 import CaptchaMiddleware from './Features/Captcha/CaptchaMiddleware.mjs'
-import UnsupportedBrowserMiddleware from './infrastructure/UnsupportedBrowserMiddleware.js'
+import UnsupportedBrowserMiddleware from './infrastructure/UnsupportedBrowserMiddleware.mjs'
 import logger from '@overleaf/logger'
 import _ from 'lodash'
-import { plainTextResponse } from './infrastructure/Response.js'
+import { plainTextResponse } from './infrastructure/Response.mjs'
 import SocketDiagnostics from './Features/SocketDiagnostics/SocketDiagnostics.mjs'
 import ClsiCacheController from './Features/Compile/ClsiCacheController.mjs'
-import AsyncLocalStorage from './infrastructure/AsyncLocalStorage.js'
+import AsyncLocalStorage from './infrastructure/AsyncLocalStorage.mjs'
 
 const { renderUnsupportedBrowserPage, unsupportedBrowserMiddleware } =
   UnsupportedBrowserMiddleware
@@ -91,8 +91,8 @@ const rateLimiters = {
     duration: 60,
   }),
   compileProjectHttp: new RateLimiter('compile-project-http', {
-    points: 800,
-    duration: 60 * 60,
+    points: 200,
+    duration: 10 * 60,
   }),
   confirmEmail: new RateLimiter('confirm-email', {
     points: 10,
@@ -979,6 +979,20 @@ async function initialize(webRouter, privateApiRouter, publicApiRouter) {
       RateLimiterMiddleware.rateLimit(rateLimiters.sendChatMessage),
       ChatController.sendMessage
     )
+    webRouter.delete(
+      '/project/:project_id/messages/:message_id',
+      AuthorizationMiddleware.blockRestrictedUserFromProject,
+      AuthorizationMiddleware.ensureUserCanReadProject,
+      PermissionsController.requirePermission('chat'),
+      ChatController.deleteMessage
+    )
+    webRouter.post(
+      '/project/:project_id/messages/:message_id/edit',
+      AuthorizationMiddleware.blockRestrictedUserFromProject,
+      AuthorizationMiddleware.ensureUserCanReadProject,
+      PermissionsController.requirePermission('chat'),
+      ChatController.editMessage
+    )
   }
 
   webRouter.post(
@@ -1145,7 +1159,7 @@ async function initialize(webRouter, privateApiRouter, publicApiRouter) {
       CompileManager.compile(
         projectId,
         testUserId,
-        {},
+        { metricsPath: 'health-check' },
         function (error, status, _outputFiles, clsiServerId) {
           if (handler) {
             clearTimeout(handler)

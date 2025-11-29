@@ -137,6 +137,8 @@ module.exports = {
         'app.mjs',
         'scripts/**/*.mjs',
         'migrations/**/*.mjs',
+        'test/acceptance/src/**/*.mjs',
+        'test/unit/src/**/*.mjs',
       ],
       excludedFiles: [
         // migration template file
@@ -286,10 +288,8 @@ module.exports = {
         'scripts/add_subscription_members_csv.mjs',
         'scripts/analytics/helpers/GoogleBigQueryHelper.mjs',
         'scripts/attach_dangling_comments_to_doc.mjs',
-        'scripts/back_fill_doc_rev.mjs',
         'scripts/backfill_mixpanel_user_properties.mjs',
         'scripts/backfill_project_image_name.mjs',
-        'scripts/backfill_project_invites_token_hmac.mjs',
         'scripts/backfill_user_properties.mjs',
         'scripts/backfill_users_sso_attribute.mjs',
         'scripts/bench_bcrypt.mjs',
@@ -353,6 +353,7 @@ module.exports = {
         'scripts/suspend_users.mjs',
         'scripts/sync-user-entitlements/sync-user-entitlements.mjs',
         'scripts/update_project_image_name.mjs',
+        'scripts/user-export/analytics.mjs',
         'scripts/user-export/fs.mjs',
         'scripts/user-export/http.mjs',
         'scripts/user-export/observer.mjs',
@@ -531,6 +532,7 @@ module.exports = {
       rules: {
         '@overleaf/no-unnecessary-trans': 'error',
         '@overleaf/should-unescape-trans': 'error',
+        '@overleaf/require-loading-label': 'error',
 
         // https://astexplorer.net/
         'no-restricted-syntax': [

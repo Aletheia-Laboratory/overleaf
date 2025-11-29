@@ -1,17 +1,17 @@
-import ProjectDeleter from '../Project/ProjectDeleter.js'
-import EditorController from './EditorController.js'
-import ProjectGetter from '../Project/ProjectGetter.js'
-import AuthorizationManager from '../Authorization/AuthorizationManager.js'
-import ProjectEditorHandler from '../Project/ProjectEditorHandler.js'
+import ProjectDeleter from '../Project/ProjectDeleter.mjs'
+import EditorController from './EditorController.mjs'
+import ProjectGetter from '../Project/ProjectGetter.mjs'
+import AuthorizationManager from '../Authorization/AuthorizationManager.mjs'
+import ProjectEditorHandler from '../Project/ProjectEditorHandler.mjs'
 import Metrics from '@overleaf/metrics'
-import CollaboratorsInviteGetter from '../Collaborators/CollaboratorsInviteGetter.js'
-import PrivilegeLevels from '../Authorization/PrivilegeLevels.js'
-import SessionManager from '../Authentication/SessionManager.js'
+import CollaboratorsInviteGetter from '../Collaborators/CollaboratorsInviteGetter.mjs'
+import PrivilegeLevels from '../Authorization/PrivilegeLevels.mjs'
+import SessionManager from '../Authentication/SessionManager.mjs'
 import Errors from '../Errors/Errors.js'
 import { expressify } from '@overleaf/promise-utils'
 import Settings from '@overleaf/settings'
-import CollaboratorsGetter from '../Collaborators/CollaboratorsGetter.js'
-import { z, zz, validateReq } from '../../infrastructure/Validation.js'
+import CollaboratorsGetter from '../Collaborators/CollaboratorsGetter.mjs'
+import { z, zz, validateReq } from '../../infrastructure/Validation.mjs'
 
 const ProjectAccess = CollaboratorsGetter.ProjectAccess
 
@@ -152,7 +152,11 @@ async function addDoc(req, res, next) {
     res.json(doc)
   } catch (err) {
     if (err.message === 'project_has_too_many_files') {
-      res.status(400).json(req.i18n.translate('project_has_too_many_files'))
+      res.status(400).json(
+        req.i18n.translate('project_has_too_many_files_limit', {
+          limit: Settings.maxEntitiesPerProject,
+        })
+      )
     } else {
       next(err)
     }
@@ -178,7 +182,11 @@ async function addFolder(req, res, next) {
     res.json(doc)
   } catch (err) {
     if (err.message === 'project_has_too_many_files') {
-      res.status(400).json(req.i18n.translate('project_has_too_many_files'))
+      res.status(400).json(
+        req.i18n.translate('project_has_too_many_files_limit', {
+          limit: Settings.maxEntitiesPerProject,
+        })
+      )
     } else if (err.message === 'invalid element name') {
       res.status(400).json(req.i18n.translate('invalid_file_name'))
     } else {

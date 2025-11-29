@@ -2,14 +2,14 @@ import SubscriptionGroupHandler from './SubscriptionGroupHandler.mjs'
 
 import OError from '@overleaf/o-error'
 import logger from '@overleaf/logger'
-import SubscriptionLocator from './SubscriptionLocator.js'
-import SessionManager from '../Authentication/SessionManager.js'
-import UserAuditLogHandler from '../User/UserAuditLogHandler.js'
+import SubscriptionLocator from './SubscriptionLocator.mjs'
+import SessionManager from '../Authentication/SessionManager.mjs'
+import UserAuditLogHandler from '../User/UserAuditLogHandler.mjs'
 import { expressify } from '@overleaf/promise-utils'
-import Modules from '../../infrastructure/Modules.js'
-import UserGetter from '../User/UserGetter.js'
-import { Subscription } from '../../models/Subscription.js'
-import { z, validateReq } from '../../infrastructure/Validation.js'
+import Modules from '../../infrastructure/Modules.mjs'
+import UserGetter from '../User/UserGetter.mjs'
+import { Subscription } from '../../models/Subscription.mjs'
+import { z, validateReq } from '../../infrastructure/Validation.mjs'
 import { isProfessionalGroupPlan } from './PlansHelper.mjs'
 import {
   MissingBillingInfoError,
@@ -20,7 +20,7 @@ import {
   HasPastDueInvoiceError,
   HasNoAdditionalLicenseWhenManuallyCollectedError,
   PaymentActionRequiredError,
-} from './Errors.js'
+} from './Errors.mjs'
 
 const MAX_NUMBER_OF_USERS = 20
 const MAX_NUMBER_OF_PO_NUMBER_CHARACTERS = 50
@@ -170,6 +170,7 @@ async function addSeatsToGroupSubscription(req, res) {
       isProfessional: isProfessionalGroupPlan(subscription),
       isCollectionMethodManual:
         paymentProviderSubscription.isCollectionMethodManual,
+      redirectedPaymentErrorCode: req.query.errorCode,
     })
   } catch (error) {
     if (error instanceof MissingBillingInfoError) {
@@ -363,6 +364,7 @@ async function subscriptionUpgradePage(req, res) {
       changePreview,
       totalLicenses: olSubscription.membersLimit,
       groupName: olSubscription.teamName,
+      redirectedPaymentErrorCode: req.query.errorCode,
     })
   } catch (error) {
     if (error instanceof MissingBillingInfoError) {

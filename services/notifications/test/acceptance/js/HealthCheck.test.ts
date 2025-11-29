@@ -1,7 +1,8 @@
 import { beforeAll, describe, it, expect } from 'vitest'
 import { fetchStringWithResponse } from '@overleaf/fetch-utils'
-import app from '../../../app.js'
+import app from '../../../app.ts'
 import logger from '@overleaf/logger'
+import './MongoHelper.ts'
 
 let runAppPromise: Promise<void> | null = null
 

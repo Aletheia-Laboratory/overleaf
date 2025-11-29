@@ -25,7 +25,7 @@ import {
   buildRuleDeltas,
   handleLogFiles,
   handleOutputFiles,
-} from '../../features/pdf-preview/util/output-files'
+} from '@/features/pdf-preview/util/output-files'
 import { useProjectContext } from './project-context'
 import { useEditorContext } from './editor-context'
 import { buildFileList } from '../../features/pdf-preview/util/file-list'
@@ -50,11 +50,15 @@ import {
   LogEntry,
   PdfFileDataList,
 } from '@/features/pdf-preview/util/types'
-import { isSplitTestEnabled } from '@/utils/splitTestUtils'
 import { captureException } from '@/infrastructure/error-reporter'
 import OError from '@overleaf/o-error'
 import getMeta from '@/utils/meta'
 import type { Annotation } from '../../../../types/annotation'
+import { useProjectSettingsContext } from '@/features/editor-left-menu/context/project-settings-context'
+import {
+  ActiveOverallTheme,
+  useActiveOverallTheme,
+} from '../hooks/use-active-overall-theme'
 
 type PdfFile = Record<string, any>
 
@@ -81,7 +85,7 @@ export type CompileContext = {
   logEntryAnnotations?: Record<string, Annotation[]>
   outputFilesArchive?: string
   pdfDownloadUrl?: string
-  pdfFile?: PdfFile
+  pdfFile?: PdfFile | null
   pdfUrl?: string
   pdfViewer?: string
   position?: PdfScrollPosition
@@ -122,6 +126,9 @@ export type CompileContext = {
   clearCache: () => void
   syncToEntry: (value: any, keepCurrentView?: boolean) => void
   recordAction: (action: string) => void
+  darkModePdf: boolean | undefined
+  setDarkModePdf: (value: boolean) => void
+  activeOverallTheme: ActiveOverallTheme
 }
 
 export const LocalCompileContext = createContext<CompileContext | undefined>(
@@ -166,8 +173,13 @@ export const LocalCompileProvider: FC<React.PropsWithChildren> = ({
   const { userSettings } = useUserSettingsContext()
   const { pdfViewer, syntaxValidation } = userSettings
 
+  // The active setting for dark mode PDF
+  const { darkModePdf, setDarkModePdf } = useProjectSettingsContext()
+
+  const activeOverallTheme = useActiveOverallTheme()
+
   // low level details for metrics
-  const [pdfFile, setPdfFile] = useState<PdfFile | undefined>()
+  const [pdfFile, setPdfFile] = useState<PdfFile | null | undefined>()
 
   // the project is considered to be "uncompiled" if a doc has changed, or finished saving, since the last compile started.
   const [uncompiled, setUncompiled] = useState(false)
@@ -199,8 +211,7 @@ export const LocalCompileProvider: FC<React.PropsWithChildren> = ({
   const [compiledOnce, setCompiledOnce] = useState(false)
   // fetch initial compile response from cache
   const [initialCompileFromCache, setInitialCompileFromCache] = useState(
-    getMeta('ol-projectOwnerHasPremiumOnPageLoad') &&
-      isSplitTestEnabled('populate-clsi-cache') &&
+    getMeta('ol-canUseClsiCache') &&
       // Avoid fetching the initial compile from cache in PDF detach tab
       role !== 'detached'
   )
@@ -296,7 +307,7 @@ export const LocalCompileProvider: FC<React.PropsWithChildren> = ({
   }, [compiling])
 
   const _buildLogEntryAnnotations = useCallback(
-    (entries: any) =>
+    (entries: LogEntry[]) =>
       buildLogEntryAnnotations(entries, fileTreeData, lastCompileRootDocId),
     [fileTreeData, lastCompileRootDocId]
   )
@@ -356,7 +367,9 @@ export const LocalCompileProvider: FC<React.PropsWithChildren> = ({
   useEffect(() => {
     if (initialCompileFromCache && !pendingInitialCompileFromCache) {
       setPendingInitialCompileFromCache(true)
-      getJSON(`/project/${projectId}/output/cached/output.overleaf.json`)
+      getJSON(`/project/${projectId}/output/cached/output.overleaf.json`, {
+        signal: AbortSignal.timeout(5_000),
+      })
         .then((data: any) => {
           // Hand data over to next effect, it will wait for project/doc loading.
           setDataFromCache(data)
@@ -793,6 +806,9 @@ export const LocalCompileProvider: FC<React.PropsWithChildren> = ({
       cleanupCompileResult,
       syncToEntry,
       recordAction,
+      darkModePdf,
+      setDarkModePdf,
+      activeOverallTheme,
     }),
     [
       animateCompileDropdownArrow,
@@ -845,6 +861,9 @@ export const LocalCompileProvider: FC<React.PropsWithChildren> = ({
       toggleLogs,
       syncToEntry,
       recordAction,
+      darkModePdf,
+      setDarkModePdf,
+      activeOverallTheme,
     ]
   )
 

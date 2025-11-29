@@ -114,11 +114,10 @@ function shareProjectByEmail(
     cy.findByLabelText('Add email address', { selector: 'input' })
       .parents('form')
       .within(() => {
-        cy.findByTestId('add-collaborator-select')
-          .click()
-          .then(() => {
-            cy.findByRole('option', { name: level }).click()
-          })
+        cy.findByTestId('add-collaborator-select').as('select').click()
+        cy.get('@select').then(() => {
+          cy.findByRole('option', { name: level }).click()
+        })
       })
     cy.findByRole('button', { name: 'Invite' }).click()
     cy.findByText('Invite not yet accepted.')
@@ -141,6 +140,7 @@ export function getSpamSafeProjectName() {
     // Move from hex/16 to base64/64 possible characters per char in string
     const name = Buffer.from(uuid().replaceAll('-', ''), 'hex')
       .toString('base64')
+      .replace('/', '_')
       .slice(0, 10)
     const nDigits = (name.match(/\d/g) || []).length
     if (nDigits < 6) return name
@@ -210,7 +210,7 @@ export function openFile(fileName: string, waitFor: string) {
     .click({ force: true })
 
   // wait until we've switched to the selected file
-  cy.findByText('Loading…').should('not.exist')
+  cy.findByRole('status').should('not.exist')
   cy.findByText(waitFor)
 }
 
@@ -230,7 +230,10 @@ export function createNewFile() {
     .click({ force: true })
 
   // wait until we've switched to the newly created empty file
-  cy.findByText('Loading…').should('not.exist')
+  cy.findByRole('textbox', { name: 'Source Editor editing' }).within(() => {
+    cy.findByRole('status').should('not.exist')
+    cy.get('.cm-line').should('have.length', 1)
+  })
   cy.get('.cm-line').should('have.length', 1)
 
   return fileName
@@ -271,12 +274,12 @@ export function prepareFileUploadTest(binary = false) {
 }
 
 export function testNewFileUpload() {
-  it('can upload text file', () => {
+  it('can upload text file', function () {
     const check = prepareFileUploadTest(false)
     check()
   })
 
-  it('can upload binary file', () => {
+  it('can upload binary file', function () {
     const check = prepareFileUploadTest(true)
     check()
   })

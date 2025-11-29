@@ -3,12 +3,12 @@ import Path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { promiseMapWithLimit } from '@overleaf/promise-utils'
 import Settings from '@overleaf/settings'
-import { db } from '../app/src/infrastructure/mongodb.js'
-import GracefulShutdown from '../app/src/infrastructure/GracefulShutdown.js'
-import ProjectDeleter from '../app/src/Features/Project/ProjectDeleter.js'
-import SplitTestManager from '../app/src/Features/SplitTests/SplitTestManager.js'
-import UserDeleter from '../app/src/Features/User/UserDeleter.js'
-import UserRegistrationHandler from '../app/src/Features/User/UserRegistrationHandler.js'
+import { db } from '../app/src/infrastructure/mongodb.mjs'
+import GracefulShutdown from '../app/src/infrastructure/GracefulShutdown.mjs'
+import ProjectDeleter from '../app/src/Features/Project/ProjectDeleter.mjs'
+import SplitTestManager from '../app/src/Features/SplitTests/SplitTestManager.mjs'
+import UserDeleter from '../app/src/Features/User/UserDeleter.mjs'
+import UserRegistrationHandler from '../app/src/Features/User/UserRegistrationHandler.mjs'
 
 const MONOREPO = Path.dirname(
   Path.dirname(Path.dirname(Path.dirname(fileURLToPath(import.meta.url))))
@@ -32,6 +32,7 @@ async function createUser(email) {
       $set: {
         // Set admin flag.
         isAdmin: email.startsWith('admin+'),
+        adminRoles: email.startsWith('admin+') ? ['engineering'] : [],
         // Disable spell-checking for performance and flakiness reasons.
         'ace.spellCheckLanguage': '',
         // Override features.

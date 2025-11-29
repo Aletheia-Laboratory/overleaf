@@ -16,6 +16,7 @@ services:
       - ../../node_modules:/overleaf/node_modules
       - ../../libraries:/overleaf/libraries
       - ../../bin/shared/wait_for_it:/overleaf/bin/shared/wait_for_it
+      - ../../tools/migrations:/overleaf/tools/migrations
     working_dir: /overleaf/services/history-v1
     environment:
       MOCHA_GREP: ${MOCHA_GREP}
@@ -47,6 +48,7 @@ services:
       - ../../libraries:/overleaf/libraries
       - minio-certs:/certs
       - ../../bin/shared/wait_for_it:/overleaf/bin/shared/wait_for_it
+      - ../../tools/migrations:/overleaf/tools/migrations
     working_dir: /overleaf/services/history-v1
     environment:
       ELASTIC_SEARCH_DSN: es:9200
@@ -54,10 +56,11 @@ services:
       HISTORY_REDIS_HOST: redis_test
       QUEUES_REDIS_HOST: redis_test
       ANALYTICS_QUEUES_REDIS_HOST: redis_test
-      MONGO_HOST: mongo
+      MONGO_CONNECTION_STRING: mongodb://mongo/test-overleaf
       POSTGRES_HOST: postgres
       AWS_S3_ENDPOINT: https://minio:9000
       AWS_S3_PATH_STYLE: 'true'
+      DELETE_OBJECTS_MD5_FALLBACK: true
       AWS_ACCESS_KEY_ID: OVERLEAF_HISTORY_S3_ACCESS_KEY_ID
       AWS_SECRET_ACCESS_KEY: OVERLEAF_HISTORY_S3_SECRET_ACCESS_KEY
       MINIO_ROOT_USER: MINIO_ROOT_USER
@@ -97,7 +100,7 @@ services:
 
   mongo:
     image: mongo:8.0.11
-    command: --replSet overleaf
+    command: --replSet overleaf --notablescan
     volumes:
       - ../../bin/shared/mongodb-init-replica-set.js:/docker-entrypoint-initdb.d/mongodb-init-replica-set.js
       - ../../bin/shared/mongodb-docker-entrypoint-wait.sh:/mongodb-docker-entrypoint-wait.sh
@@ -127,7 +130,7 @@ services:
     build:
       dockerfile_inline: |
         FROM node:22.18.0
-        RUN wget -O /certgen "https://github.com/minio/certgen/releases/download/v1.3.0/certgen-linux-$(dpkg --print-architecture)"
+        RUN wget -O /certgen "https://github.com/minio/certgen/releases/download/v1.3.0/certgen-linux-"`dpkg --print-architecture`
         RUN chmod +x /certgen
     volumes:
       - minio-certs:/certs
@@ -196,7 +199,10 @@ services:
                 "Action": [
                   "s3:PutObject",
                   "s3:GetObject",
-                  "s3:DeleteObject"
+                  "s3:DeleteObject",
+                  "s3:AbortMultipartUpload",
+                  "s3:ListMultipartUploadParts",
+                  "s3:ListBucketMultipartUploads"
                 ],
                 "Resource": "arn:aws:s3:::overleaf-test-history-chunks/*"
               },
@@ -212,7 +218,10 @@ services:
                 "Action": [
                   "s3:PutObject",
                   "s3:GetObject",
-                  "s3:DeleteObject"
+                  "s3:DeleteObject",
+                  "s3:AbortMultipartUpload",
+                  "s3:ListMultipartUploadParts",
+                  "s3:ListBucketMultipartUploads"
                 ],
                 "Resource": "arn:aws:s3:::overleaf-test-history-deks/*"
               },
@@ -228,7 +237,10 @@ services:
                 "Action": [
                   "s3:PutObject",
                   "s3:GetObject",
-                  "s3:DeleteObject"
+                  "s3:DeleteObject",
+                  "s3:AbortMultipartUpload",
+                  "s3:ListMultipartUploadParts",
+                  "s3:ListBucketMultipartUploads"
                 ],
                 "Resource": "arn:aws:s3:::overleaf-test-history-global-blobs/*"
               },
@@ -244,7 +256,10 @@ services:
                 "Action": [
                   "s3:PutObject",
                   "s3:GetObject",
-                  "s3:DeleteObject"
+                  "s3:DeleteObject",
+                  "s3:AbortMultipartUpload",
+                  "s3:ListMultipartUploadParts",
+                  "s3:ListBucketMultipartUploads"
                 ],
                 "Resource": "arn:aws:s3:::overleaf-test-history-project-blobs/*"
               }
@@ -255,8 +270,8 @@ services:
         mc admin policy attach s3 overleaf-history \
           --user=OVERLEAF_HISTORY_S3_ACCESS_KEY_ID
   gcs:
-    image: fsouza/fake-gcs-server:1.45.2
-    command: ["--port=9090", "--scheme=http"]
+    image: fsouza/fake-gcs-server:1.52.3
+    command: ["--port=9090", "--scheme=http", "--external-url=http://gcs:9090"]
     healthcheck:
       test: wget --quiet --output-document=/dev/null http://localhost:9090/storage/v1/b
       interval: 1s

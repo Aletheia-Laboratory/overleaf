@@ -16,66 +16,73 @@ describe('RestoreManager', function () {
   beforeEach(async function (ctx) {
     tk.freeze(Date.now()) // freeze the time for these tests
 
+    ctx.fsPath = '/tmp/path/on/disk'
+    ctx.blobStream = 'blob-stream'
+
     vi.doMock('../../../../app/src/Features/Errors/Errors.js', () => ({
       default: Errors,
     }))
 
-    vi.doMock('../../../../app/src/Features/History/HistoryManager.js', () => ({
-      default: (ctx.HistoryManager = {
-        promises: {
-          getContentAtVersion: sinon.stub().resolves({
-            // Raw snapshot data that will be passed to Snapshot.fromRaw
-            files: {
-              'main.tex': {
-                hash: 'abcdef1234567890abcdef1234567890abcdef12',
-                stringLength: 100,
-                metadata: {
-                  editorId: 'test-editor',
+    vi.doMock(
+      '../../../../app/src/Features/History/HistoryManager.mjs',
+      () => ({
+        default: (ctx.HistoryManager = {
+          promises: {
+            getContentAtVersion: sinon.stub().resolves({
+              // Raw snapshot data that will be passed to Snapshot.fromRaw
+              files: {
+                'main.tex': {
+                  hash: 'abcdef1234567890abcdef1234567890abcdef12',
+                  stringLength: 100,
+                  metadata: {
+                    editorId: 'test-editor',
+                  },
+                },
+                'foo.tex': {
+                  hash: 'abcdef1234567890abcdef1234567890abcdef12',
+                  stringLength: 100,
+                  metadata: {
+                    editorId: 'test-editor',
+                  },
+                },
+                'folder/file.tex': {
+                  hash: 'abcdef1234567890abcdef1234567890abcdef12',
+                  stringLength: 100,
+                  metadata: {
+                    editorId: 'test-editor',
+                  },
+                },
+                'foo.png': {
+                  hash: 'abcdef1234567890abcdef1234567890abcdef12',
+                  stringLength: 100,
+                  metadata: {
+                    provider: 'bar',
+                  },
+                },
+                'linkedFile.bib': {
+                  hash: 'abcdef1234567890abcdef1234567890abcdef12',
+                  stringLength: 100,
+                  metadata: {
+                    provider: 'mendeley',
+                  },
+                },
+                'withMainTrue.tex': {
+                  hash: 'abcdef1234567890abcdef1234567890abcdef12',
+                  stringLength: 100,
+                  metadata: {
+                    main: true,
+                  },
                 },
               },
-              'foo.tex': {
-                hash: 'abcdef1234567890abcdef1234567890abcdef12',
-                stringLength: 100,
-                metadata: {
-                  editorId: 'test-editor',
-                },
-              },
-              'folder/file.tex': {
-                hash: 'abcdef1234567890abcdef1234567890abcdef12',
-                stringLength: 100,
-                metadata: {
-                  editorId: 'test-editor',
-                },
-              },
-              'foo.png': {
-                hash: 'abcdef1234567890abcdef1234567890abcdef12',
-                stringLength: 100,
-                metadata: {
-                  provider: 'bar',
-                },
-              },
-              'linkedFile.bib': {
-                hash: 'abcdef1234567890abcdef1234567890abcdef12',
-                stringLength: 100,
-                metadata: {
-                  provider: 'mendeley',
-                },
-              },
-              'withMainTrue.tex': {
-                hash: 'abcdef1234567890abcdef1234567890abcdef12',
-                stringLength: 100,
-                metadata: {
-                  main: true,
-                },
-              },
-            },
-            timestamp: new Date().toISOString(),
-          }),
-        },
-      }),
-    }))
+              timestamp: new Date().toISOString(),
+            }),
+            requestBlob: sinon.stub().resolves({ stream: ctx.blobStream }),
+          },
+        }),
+      })
+    )
 
-    vi.doMock('../../../../app/src/infrastructure/Metrics.js', () => ({
+    vi.doMock('../../../../app/src/infrastructure/Metrics.mjs', () => ({
       default: {
         revertFileDurationSeconds: {
           startTimer: sinon.stub().returns(sinon.stub()),
@@ -87,11 +94,58 @@ describe('RestoreManager', function () {
     }))
 
     vi.doMock('@overleaf/settings', () => ({
-      default: {},
+      default: {
+        fileIgnorePattern:
+          '**/{{__MACOSX,.git,.texpadtmp,.R}{,/**},.!(latexmkrc),*.{dvi,aux,log,toc,out,pdfsync,synctex,synctex(busy),fdb_latexmk,fls,nlo,ind,glo,gls,glg,bbl,blg,doc,docx,gz,swp}}',
+        textExtensions: [
+          'tex',
+          'latex',
+          'sty',
+          'cls',
+          'bst',
+          'bib',
+          'bibtex',
+          'txt',
+          'tikz',
+          'mtx',
+          'rtex',
+          'md',
+          'asy',
+          'lbx',
+          'bbx',
+          'cbx',
+          'm',
+          'lco',
+          'dtx',
+          'ins',
+          'ist',
+          'def',
+          'clo',
+          'ldf',
+          'rmd',
+          'lua',
+          'gv',
+          'mf',
+          'yml',
+          'yaml',
+          'lhs',
+          'mk',
+          'xmpdata',
+          'cfg',
+          'rnw',
+          'ltx',
+          'inc',
+        ],
+      },
     }))
 
     vi.doMock('../../../../app/src/infrastructure/FileWriter', () => ({
-      default: (ctx.FileWriter = { promises: {} }),
+      default: (ctx.FileWriter = {
+        promises: {
+          writeStreamToDisk: sinon.stub().resolves(ctx.fsPath),
+          writeContentToDisk: sinon.stub().resolves(ctx.fsPath),
+        },
+      }),
     }))
 
     vi.doMock(
@@ -167,6 +221,7 @@ describe('RestoreManager', function () {
             getMetadata: sinon
               .stub()
               .returns(snapshotData?.files?.[pathname]?.metadata),
+            getHash: sinon.stub().returns((ctx.hash = 'somehash')),
           }),
           getFilePathnames: sinon
             .stub()
@@ -380,9 +435,6 @@ describe('RestoreManager', function () {
         overleaf: { history: { rangesSupportEnabled: true } },
         rootDoc_id: 'root-doc-id',
       })
-      ctx.RestoreManager.promises._writeFileVersionToDisk = sinon
-        .stub()
-        .resolves((ctx.fsPath = '/tmp/path/on/disk'))
       ctx.RestoreManager.promises._findOrCreateFolder = sinon
         .stub()
         .resolves((ctx.folder_id = 'mock-folder-id'))
@@ -487,9 +539,6 @@ describe('RestoreManager', function () {
             metadata: { ts: '2024-01-01T00:00:00.000Z', user_id: 'user-2' },
           },
         ]
-        ctx.FileSystemImportManager.promises.importFile = sinon
-          .stub()
-          .resolves({ type: 'doc', lines: ['foo', 'bar', 'baz'] })
         ctx.getDocUpdaterCompatibleRanges.returns({
           changes: ctx.tracked_changes,
           comments: ctx.comments,
@@ -933,9 +982,6 @@ describe('RestoreManager', function () {
       describe('when reverting a linked file', function () {
         beforeEach(async function (ctx) {
           ctx.pathname = 'foo.png'
-          ctx.FileSystemImportManager.promises.importFile = sinon
-            .stub()
-            .resolves({ type: 'file' })
           ctx.result = await ctx.RestoreManager.promises.revertFile(
             ctx.user_id,
             ctx.project_id,
@@ -979,9 +1025,6 @@ describe('RestoreManager', function () {
       describe('when reverting a linked document with provider', function () {
         beforeEach(async function (ctx) {
           ctx.pathname = 'linkedFile.bib'
-          ctx.FileSystemImportManager.promises.importFile = sinon
-            .stub()
-            .resolves({ type: 'doc', lines: ['foo', 'bar', 'baz'] })
           ctx.result = await ctx.RestoreManager.promises.revertFile(
             ctx.user_id,
             ctx.project_id,
@@ -1025,9 +1068,6 @@ describe('RestoreManager', function () {
       describe('when reverting a linked document with { main: true }', function () {
         beforeEach(async function (ctx) {
           ctx.pathname = 'withMainTrue.tex'
-          ctx.FileSystemImportManager.promises.importFile = sinon
-            .stub()
-            .resolves({ type: 'doc', lines: ['foo', 'bar', 'baz'] })
           ctx.result = await ctx.RestoreManager.promises.revertFile(
             ctx.user_id,
             ctx.project_id,
@@ -1065,9 +1105,6 @@ describe('RestoreManager', function () {
     describe('when reverting a binary file', function () {
       beforeEach(async function (ctx) {
         ctx.pathname = 'foo.png'
-        ctx.FileSystemImportManager.promises.importFile = sinon
-          .stub()
-          .resolves({ type: 'file' })
         ctx.EditorController.promises.upsertFile = sinon
           .stub()
           .resolves({ _id: 'mock-file-id', type: 'file' })
