@@ -1,7 +1,12 @@
-# docker image build
-.dockerignore
-
-# user defined files
+# Ignora i segreti
 .env
-docker-compose.override.yml
-/data
+
+# Ignora le cartelle dei dati
+data/
+mongo-data/
+redis-data/
+
+# Ignora file di sistema e log
+.DS_Store
+*.log
+.dockerignore

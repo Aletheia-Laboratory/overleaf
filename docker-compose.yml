@@ -1,6 +1,11 @@
 services:
   sharelatex:
-    image: sharelatex/sharelatex
+    # Costruiamo l'immagine usando il tuo file personalizzato.
+    # Questo applica il FIX per la migrazione e installa LaTeX Full.
+    build:
+      context: .
+      dockerfile: Dockerfile.sharelatex.aletheia
+
     container_name: sharelatex
     restart: always
     depends_on:
@@ -49,20 +54,18 @@ services:
       - overleaf-net
 
   mongo:
-    image: mongo:6.0
+    image: mongo:8.0
     platform: linux/amd64
     container_name: mongo
     restart: unless-stopped
     command: ["mongod", "--replSet", "rs0", "--bind_ip_all"]
-    ports:
-      - "27017:27017"
     volumes:
       - mongo-data:/data/db
     networks:
       - overleaf-net
 
   mongo-init-replica:
-    image: mongo:6.0
+    image: mongo:8.0
     platform: linux/amd64
     container_name: mongo-init-replica
     depends_on:
@@ -74,13 +77,10 @@ services:
     networks:
       - overleaf-net
 
-
   redis:
-    image: redis:6.2
+    image: redis:7.0
     container_name: redis
     restart: unless-stopped
-    ports:
-      - "6379:6379"
     volumes:
       - redis-data:/data
     networks:

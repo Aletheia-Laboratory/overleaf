@@ -1,0 +1,25 @@
+# Partiamo dall'immagine ufficiale
+FROM sharelatex/sharelatex:latest
+
+# ==============================================================================
+# ⚠️ FIX TEMPORANEO PER VERSIONE 5.x "BUCATA" ⚠️
+#
+# Rimuoviamo lo script di migrazione `900_run_web_migrations.sh`.
+# Nelle versioni 5.x attuali, questo script è buggato: su installazioni pulite
+# cerca di migrare dati che non esistono e manda il container in crash loop.
+#
+# NOTA: Quando uscirà ShareLaTeX v6.0 (o una patch ufficiale), provare a
+# rimuovere questa riga per vedere se il problema è stato risolto.
+# ==============================================================================
+RUN rm -f /etc/my_init.d/900_run_web_migrations.sh
+
+# ==============================================================================
+# 📦 INSTALLAZIONE COMPLETA LATEX (SCHEME-FULL)
+#
+# Scarica e installa TUTTI i pacchetti LaTeX esistenti (~4-5 GB).
+# Questo evita errori "Package not found" per gli utenti.
+# ATTENZIONE: La build impiegherà molto tempo (15-30 min).
+# ==============================================================================
+RUN tlmgr update --self && \
+    tlmgr install scheme-full && \
+    tlmgr path add
