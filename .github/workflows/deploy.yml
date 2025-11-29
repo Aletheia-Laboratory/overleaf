@@ -1,0 +1,52 @@
+name: Deploy Overleaf su TrueNAS (Self-Hosted)
+
+on:
+  push:
+    branches: [main]
+  # Permette di lanciare il deploy manualmente dalla tab "Actions"
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: self-hosted
+
+    steps:
+      # 1. Configurazione SSH (Necessaria affinché il server possa scaricare da GitHub)
+      - name: Configura SSH per GitHub
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan github.com >> ~/.ssh/known_hosts
+          # Configurazione per usare questa chiave specifica con GitHub
+          echo -e "Host github.com\n  HostName github.com\n  User git\n  IdentityFile ~/.ssh/id_ed25519\n  IdentitiesOnly yes\n" > ~/.ssh/config
+          export GIT_SSH_COMMAND="ssh -i ~/.ssh/id_ed25519 -o IdentitiesOnly=yes"
+          
+      # 2. Fix permessi Git (Spesso necessario su cartelle montate)
+      - name: Imposta la directory Git come sicura
+        run: git config --global --add safe.directory /mnt/CiccioNAS/apps/overleaf
+
+      # 3. Deploy vero e proprio
+      - name: Aggiorna Codice e Riavvia Docker
+        run: |
+          # Spostiamoci nella cartella corretta del NAS
+          cd /mnt/CiccioNAS/apps/overleaf
+          
+          # Scarichiamo le ultime modifiche dal main
+          git fetch origin
+          git reset --hard origin/main
+          
+          # Scarichiamo le immagini base (Mongo, Redis, Base Sharelatex)
+          # Utile se ci sono aggiornamenti di sicurezza upstream
+          sudo docker compose pull
+          
+          # Ricostruiamo e Riavviamo
+          # --build è FONDAMENTALE perché usiamo un Dockerfile personalizzato
+          sudo docker compose up -d --build
+          
+          # Pulizia chiave SSH temporanea
+          rm -f ~/.ssh/id_ed25519
+
+      # 4. Pulizia sicura (SOLO immagini vecchie)
+      - name: Pulisci vecchie immagini di build
+        run: sudo docker image prune -f

@@ -32,6 +32,8 @@ services:
       OVERLEAF_ALLOW_ANONYMOUS_READ_AND_WRITE_SHARING: 'true'
       OVERLEAF_ADMIN_EMAIL: "${OVERLEAF_ADMIN_EMAIL}"
       OVERLEAF_LEGACY_REGISTER_PAGE: 'true'
+      # Logout automatico dopo 8 ore (in ms)
+      OVERLEAF_SESSION_LIFESPAN: '28800000'
 
       # --- Features ---
       ENABLED_LINKED_FILE_TYPES: 'project_file,project_output_file'
@@ -78,9 +80,11 @@ services:
       - overleaf-net
 
   redis:
-    image: redis:7.0
+    image: redis:7-alpine
     container_name: redis
     restart: unless-stopped
+    # Persistenza dati (fondamentale per non perdere sessioni e code al riavvio)
+    command: redis-server --save 60 1 --loglevel warning
     volumes:
       - redis-data:/data
     networks:
