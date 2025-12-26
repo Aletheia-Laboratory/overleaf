@@ -62,7 +62,7 @@ services:
     restart: unless-stopped
     command: ["mongod", "--replSet", "rs0", "--bind_ip_all"]
     volumes:
-      - ./data/mongo:/:/data/db
+      - ./data/mongo:/data/db
     networks:
       - overleaf-net
 
