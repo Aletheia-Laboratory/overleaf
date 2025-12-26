@@ -62,7 +62,7 @@ services:
     restart: unless-stopped
     command: ["mongod", "--replSet", "rs0", "--bind_ip_all"]
     volumes:
-      - mongo-data:/data/db
+      - ./data/mongo:/:/data/db
     networks:
       - overleaf-net
 
@@ -86,7 +86,7 @@ services:
     # Persistenza dati (fondamentale per non perdere sessioni e code al riavvio)
     command: redis-server --save 60 1 --loglevel warning
     volumes:
-      - redis-data:/data
+      - ./data/redis:/data
     networks:
       - overleaf-net
 
@@ -97,10 +97,6 @@ services:
     command: tunnel --no-autoupdate run --token ${CF_TOKEN}
     networks:
       - overleaf-net   
-
-volumes:
-  mongo-data:
-  redis-data:
 
 networks:
   overleaf-net:
