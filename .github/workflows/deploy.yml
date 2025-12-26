@@ -1,4 +1,4 @@
-name: Deploy Overleaf Organization (VM Local)
+name: Deploy Overleaf (Self-Hosted VM)
 
 on:
   push:
@@ -7,24 +7,33 @@ on:
 
 jobs:
   deploy:
-    runs-on: self-hosted 
+    runs-on: self-hosted
 
     steps:
-      - name: Sincronizzazione File
+      - name: Configura SSH per GitHub
         run: |
-          # Andiamo nella cartella definitiva dei dati
-          cd /home/aletheialab/overleaf
-          
-          # Ci assicuriamo che la cartella sia una directory git valida
-          git fetch origin main
-          git reset --hard origin/main
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan github.com >> ~/.ssh/known_hosts
+          echo -e "Host github.com\n  HostName github.com\n  User git\n  IdentityFile ~/.ssh/id_ed25519\n  IdentitiesOnly yes\n" > ~/.ssh/config
+          export GIT_SSH_COMMAND="ssh -i ~/.ssh/id_ed25519 -o IdentitiesOnly=yes"
+          eval "$(ssh-agent -s)"
+          ssh-add ~/.ssh/id_ed25519
 
-      - name: Avvio Docker
+      - name: Imposta la directory Git come sicura
+        # Modificato il percorso per puntare a overleaf
+        run: git config --global --add safe.directory /home/aletheialab/overleaf
+
+      - name: Esegui il deploy con Docker Compose
         run: |
-          cd /home/aletheialab/overleaf
-          # Usiamo docker senza sudo (visto che abbiamo aggiunto l'utente al gruppo docker)
+          # Entriamo nella cartella corretta della VM
+          cd /home/aletheialab/overleaf || exit 1
+          git fetch origin
+          git reset --hard origin/main
           docker compose pull
           docker compose up -d --build
+          rm -f ~/.ssh/id_ed25519
 
-      - name: Cleanup
+      - name: Pulisci immagini inutilizzate
         run: docker image prune -f
