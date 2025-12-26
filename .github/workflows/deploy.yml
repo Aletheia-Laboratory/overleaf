@@ -1,9 +1,8 @@
-name: Deploy Overleaf su TrueNAS (Self-Hosted)
+name: Deploy su Server Casalingo (Self-Hosted)
 
 on:
   push:
     branches: [main]
-  # Permette di lanciare il deploy manualmente dalla tab "Actions"
   workflow_dispatch:
 
 jobs:
@@ -11,42 +10,28 @@ jobs:
     runs-on: self-hosted
 
     steps:
-      # 1. Configurazione SSH (Necessaria affinché il server possa scaricare da GitHub)
       - name: Configura SSH per GitHub
         run: |
           mkdir -p ~/.ssh
           echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
           ssh-keyscan github.com >> ~/.ssh/known_hosts
-          # Configurazione per usare questa chiave specifica con GitHub
           echo -e "Host github.com\n  HostName github.com\n  User git\n  IdentityFile ~/.ssh/id_ed25519\n  IdentitiesOnly yes\n" > ~/.ssh/config
           export GIT_SSH_COMMAND="ssh -i ~/.ssh/id_ed25519 -o IdentitiesOnly=yes"
-          
-      # 2. Fix permessi Git (Spesso necessario su cartelle montate)
-      - name: Imposta la directory Git come sicura
-        run: git config --global --add safe.directory /mnt/CiccioNAS/apps/overleaf
+          eval "$(ssh-agent -s)"
+          ssh-add ~/.ssh/id_ed25519
 
-      # 3. Deploy vero e proprio
-      - name: Aggiorna Codice e Riavvia Docker
+      - name: Imposta la directory Git come sicura
+        run: git config --global --add safe.directory /home/aletheialab/overleaf
+
+      - name: Esegui il deploy con Docker Compose
         run: |
-          # Spostiamoci nella cartella corretta del NAS
-          cd /mnt/CiccioNAS/apps/overleaf
-          
-          # Scarichiamo le ultime modifiche dal main
+          cd /home/aletheialab/overleaf
           git fetch origin
           git reset --hard origin/main
-          
-          # Scarichiamo le immagini base (Mongo, Redis, Base Sharelatex)
-          # Utile se ci sono aggiornamenti di sicurezza upstream
           docker compose pull
-          
-          # Ricostruiamo e Riavviamo
-          # --build è FONDAMENTALE perché usiamo un Dockerfile personalizzato
           docker compose up -d --build
-          
-          # Pulizia chiave SSH temporanea
           rm -f ~/.ssh/id_ed25519
 
-      # 4. Pulizia sicura (SOLO immagini vecchie)
-      - name: Pulisci vecchie immagini di build
-        run:  docker image prune -f
+      - name: Pulisci spazio su disco (immagini e volumi inutilizzati)
+        run: docker system prune -af --volumes
