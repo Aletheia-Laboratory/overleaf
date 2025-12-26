@@ -1,4 +1,4 @@
-name: Deploy su Server Aletheia (Local Runner)
+name: Deploy Overleaf Organization (VM Local)
 
 on:
   push:
@@ -7,20 +7,24 @@ on:
 
 jobs:
   deploy:
-    runs-on: self-hosted  
+    runs-on: self-hosted 
 
     steps:
-      - name: Sincronizza repository
+      - name: Sincronizzazione File
         run: |
+          # Andiamo nella cartella definitiva dei dati
           cd /home/aletheialab/overleaf
-          git fetch origin
+          
+          # Ci assicuriamo che la cartella sia una directory git valida
+          git fetch origin main
           git reset --hard origin/main
 
-      - name: Docker Compose Deploy
+      - name: Avvio Docker
         run: |
           cd /home/aletheialab/overleaf
+          # Usiamo docker senza sudo (visto che abbiamo aggiunto l'utente al gruppo docker)
           docker compose pull
           docker compose up -d --build
 
-      - name: Pulisci immagini vecchie (ma NON i volumi!)
+      - name: Cleanup
         run: docker image prune -f
